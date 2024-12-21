@@ -105,10 +105,6 @@ Visualizer::create_subscribers()
   subscriber_traffic_prediction = create_subscription<adore_ros2_msgs::msg::TrafficPrediction>(
     "traffic_prediction", 1, std::bind( &Visualizer::traffic_prediction_callback, this, std::placeholders::_1 ) );
 
-  subscriber_borders = create_subscription<adore_ros2_msgs::msg::BorderArray>( "local_borders", 1,
-                                                                               std::bind( &Visualizer::borders_callback, this,
-                                                                                          std::placeholders::_1 ) );
-
   subscriber_local_map = create_subscription<adore_ros2_msgs::msg::Map>( "local_map", 1,
                                                                          std::bind( &Visualizer::map_callback, this,
                                                                                     std::placeholders::_1 ) );
@@ -166,16 +162,6 @@ Visualizer::vehicle_state_dynamic_callback( const adore_ros2_msgs::msg::VehicleS
   }
 
   publish_visualization_offset();
-}
-
-void
-Visualizer::borders_callback( const adore_ros2_msgs::msg::BorderArray& msg )
-{
-  // Convert the message to MarkerArray
-  auto marker_array = conversions::border_data_to_marker_array( msg, offset );
-
-  // Publish the MarkerArray
-  markers_to_publish["borders"] = marker_array;
 }
 
 void

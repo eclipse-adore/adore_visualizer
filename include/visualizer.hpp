@@ -48,7 +48,6 @@ private:
   rclcpp::Subscription<adore_ros2_msgs::msg::SafetyCorridor>::SharedPtr    subscriber_safety_corridor;
   rclcpp::Subscription<adore_ros2_msgs::msg::TrafficPrediction>::SharedPtr subscriber_traffic_prediction;
   rclcpp::Subscription<adore_ros2_msgs::msg::Route>::SharedPtr             subscriber_route;
-  rclcpp::Subscription<adore_ros2_msgs::msg::BorderArray>::SharedPtr       subscriber_borders;
   rclcpp::Subscription<adore_ros2_msgs::msg::Map>::SharedPtr               subscriber_local_map;
   rclcpp::Subscription<adore_ros2_msgs::msg::GoalPoint>::SharedPtr         subscriber_goal;
 
@@ -74,7 +73,6 @@ private:
   void controller_trajectory_callback( const adore_ros2_msgs::msg::Trajectory& msg );
   void safety_corridor_callback( const adore_ros2_msgs::msg::SafetyCorridor& msg );
   void traffic_prediction_callback( const adore_ros2_msgs::msg::TrafficPrediction& msg );
-  void borders_callback( const adore_ros2_msgs::msg::BorderArray& msg );
   void map_callback( const adore_ros2_msgs::msg::Map& msg );
   void route_callback( const adore_ros2_msgs::msg::Route& msg );
   void goal_callback( const adore_ros2_msgs::msg::GoalPoint& msg );

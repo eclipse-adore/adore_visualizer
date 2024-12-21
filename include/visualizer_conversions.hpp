@@ -15,7 +15,6 @@
 
 #include "adore_map_conversions.hpp"
 #include "adore_math/angles.h"
-#include "adore_ros2_msgs/msg/border_array.hpp"
 #include "adore_ros2_msgs/msg/goal_point.hpp"
 #include "adore_ros2_msgs/msg/route.hpp"
 #include "adore_ros2_msgs/msg/trajectory.hpp"
@@ -59,8 +58,6 @@ MarkerArray state_buffer_to_markers( const StateBuffer& odometry_buffer, const O
 MarkerArray safety_corridor_to_markers( const adore_ros2_msgs::msg::SafetyCorridor& safety_corridor, const Offset& offset );
 
 MarkerArray traffic_prediction_to_markers( const adore_ros2_msgs::msg::TrafficPrediction& traffic_prediction, const Offset& offset );
-
-MarkerArray border_data_to_marker_array( const adore_ros2_msgs::msg::BorderArray& border_array, const Offset& offset );
 
 MarkerArray map_to_marker_array( const adore_ros2_msgs::msg::Map& local_map, const Offset& offset );
 

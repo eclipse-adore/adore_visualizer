@@ -76,23 +76,6 @@ traffic_prediction_to_markers( const adore_ros2_msgs::msg::TrafficPrediction& tr
 }
 
 MarkerArray
-border_data_to_marker_array( const adore_ros2_msgs::msg::BorderArray& border_array, const Offset& offset )
-{
-
-  MarkerArray marker_array;
-
-  int i = 0;
-  for( const auto& border : border_array.border_array )
-  {
-
-    auto line_marker = primitives::create_line_marker( border.points, "borders", i, 0.2, colors::brown, offset );
-    marker_array.markers.push_back( line_marker );
-    i++;
-  }
-  return marker_array;
-}
-
-MarkerArray
 map_to_marker_array( const adore_ros2_msgs::msg::Map& local_map_msg, const Offset& offset )
 {
   MarkerArray marker_array;
