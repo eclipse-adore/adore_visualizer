@@ -21,6 +21,7 @@
 #include <adore_ros2_msgs/msg/safety_corridor.hpp>
 #include <adore_ros2_msgs/msg/traffic_participant_set.hpp>
 #include <adore_ros2_msgs/msg/traffic_prediction.hpp>
+#include <adore_ros2_msgs/msg/traffic_signals.hpp>
 
 #include "color_palette.hpp"
 #include "state_buffer.hpp"
@@ -64,6 +65,9 @@ MarkerArray map_to_marker_array( const adore_ros2_msgs::msg::Map& local_map, con
 MarkerArray route_to_marker_array( const adore_ros2_msgs::msg::Route& route, const Offset& offset );
 
 MarkerArray goal_to_marker_array( const adore_ros2_msgs::msg::GoalPoint& route, const Offset& offset );
+
+MarkerArray traffic_signals_to_markers( const adore_ros2_msgs::msg::TrafficSignals& traffic_signals, const Offset& offset );
+
 
 } // namespace conversions
 } // namespace visualizer

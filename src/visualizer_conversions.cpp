@@ -305,6 +305,52 @@ state_to_markers( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Of
 
   return marker_array;
 }
+
+MarkerArray
+traffic_signals_to_markers( const adore_ros2_msgs::msg::TrafficSignals& traffic_signals, const Offset& offset )
+{
+  MarkerArray marker_array;
+
+  for( size_t i = 0; i < traffic_signals.signals.size(); ++i )
+  {
+    const auto& signal = traffic_signals.signals[i];
+
+    // Rectangle (signal housing)
+    Marker rect_marker = primitives::create_rectangle_marker( signal.x, signal.y, 0.1, 0.7, 2.4, 0.2, 0.0, "traffic_signal", i,
+                                                              colors::black, offset );
+    marker_array.markers.push_back( rect_marker );
+
+    // Circle markers for the lights
+    const double circle_radius         = 0.6;
+    const double offset_between_lights = 0.75; // Spacing between centers of lights
+
+    // Red light
+    Marker red_light = primitives::create_sphere_marker( signal.x, signal.y + offset_between_lights, 0.12, circle_radius,
+                                                         "traffic_signal_red", i,
+                                                         ( signal.state == adore_ros2_msgs::msg::TrafficSignal::RED ) ? colors::red
+                                                                                                                      : colors::gray,
+                                                         offset );
+    marker_array.markers.push_back( red_light );
+
+    // Yellow light
+    Marker yellow_light = primitives::create_sphere_marker( signal.x, signal.y, 0.12, circle_radius, "traffic_signal_yellow", i,
+                                                            ( signal.state == adore_ros2_msgs::msg::TrafficSignal::YELLOW ) ? colors::yellow
+                                                                                                                            : colors::gray,
+                                                            offset );
+    marker_array.markers.push_back( yellow_light );
+
+    // Green light
+    Marker green_light = primitives::create_sphere_marker( signal.x, signal.y - offset_between_lights, 0.12, circle_radius,
+                                                           "traffic_signal_green", i,
+                                                           ( signal.state == adore_ros2_msgs::msg::TrafficSignal::GREEN ) ? colors::green
+                                                                                                                          : colors::gray,
+                                                           offset );
+    marker_array.markers.push_back( green_light );
+  }
+
+  return marker_array;
+}
+
 } // namespace conversions
 } // namespace visualizer
 } // namespace adore

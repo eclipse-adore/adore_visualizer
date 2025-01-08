@@ -37,7 +37,8 @@ Visualizer::Visualizer() :
                    "planned_trajectory",
                    "controller_trajectory",
                    "ego_vehicle",
-                   "goal" };
+                   "goal",
+                   "traffic_signals" };
 
   visualizing_trajectory_names = { "trajectory_decision", "planned_trajectory", "controller_trajectory" };
 
@@ -116,6 +117,10 @@ Visualizer::create_subscribers()
   subscriber_goal = create_subscription<adore_ros2_msgs::msg::GoalPoint>( "mission/goal_position", 1,
                                                                           std::bind( &Visualizer::goal_callback, this,
                                                                                      std::placeholders::_1 ) );
+
+  subscriber_traffic_signals = create_subscription<adore_ros2_msgs::msg::TrafficSignals>( "traffic_signals", 10,
+                                                                                          std::bind( &Visualizer::traffic_signals_callback,
+                                                                                                     this, std::placeholders::_1 ) );
 
   main_timer = create_wall_timer( 100ms, std::bind( &Visualizer::timer_callback, this ) );
 }
@@ -250,6 +255,17 @@ Visualizer::traffic_prediction_callback( const adore_ros2_msgs::msg::TrafficPred
 {
   MarkerArray marker_array                 = conversions::traffic_prediction_to_markers( msg, offset );
   markers_to_publish["traffic_prediction"] = marker_array;
+}
+
+void
+Visualizer::traffic_signals_callback( const adore_ros2_msgs::msg::TrafficSignals& msg )
+{
+  std::cerr << "got traffic signal============================================================" << std::endl;
+  // Convert the message to MarkerArray using the conversion function
+  auto marker_array = conversions::traffic_signals_to_markers( msg, offset );
+
+  // Publish the MarkerArray
+  markers_to_publish["traffic_signals"] = marker_array;
 }
 
 void

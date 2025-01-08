@@ -36,6 +36,8 @@ constexpr Color pink   = { 0.867f, 0.518f, 0.604f, 1.0f }; // #E377C2
 constexpr Color gray   = { 0.498f, 0.498f, 0.498f, 1.0f }; // #7F7F7F
 constexpr Color yellow = { 0.737f, 0.741f, 0.133f, 1.0f }; // #BCBD22
 constexpr Color cyan   = { 0.090f, 0.745f, 0.812f, 1.0f }; // #17BECF
+constexpr Color black  = { 0.0f, 0.0f, 0.0f, 1.0f };       // #000000
+
 } // namespace colors
 
 // Function to convert HSV to RGB
