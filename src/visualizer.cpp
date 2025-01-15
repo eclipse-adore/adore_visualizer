@@ -51,12 +51,10 @@ Visualizer::Visualizer() :
 void
 Visualizer::create_publishers()
 {
-
-
   // Loop over marker names to create publishers
   for( const auto& name : marker_names )
   {
-    std::string topic_name   = "visualization/" + name;
+    std::string topic_name   = "visualization_" + name;
     marker_publishers[name]  = this->create_publisher<visualization_msgs::msg::MarkerArray>( topic_name, 10 );
     markers_to_publish[name] = MarkerArray();
   }
@@ -260,7 +258,6 @@ Visualizer::traffic_prediction_callback( const adore_ros2_msgs::msg::TrafficPred
 void
 Visualizer::traffic_signals_callback( const adore_ros2_msgs::msg::TrafficSignals& msg )
 {
-  std::cerr << "got traffic signal============================================================" << std::endl;
   // Convert the message to MarkerArray using the conversion function
   auto marker_array = conversions::traffic_signals_to_markers( msg, offset );
 
