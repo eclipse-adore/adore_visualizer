@@ -50,6 +50,7 @@ private:
   rclcpp::Subscription<adore_ros2_msgs::msg::Route>::SharedPtr             subscriber_route;
   rclcpp::Subscription<adore_ros2_msgs::msg::Map>::SharedPtr               subscriber_local_map;
   rclcpp::Subscription<adore_ros2_msgs::msg::GoalPoint>::SharedPtr         subscriber_goal;
+  rclcpp::Subscription<adore_ros2_msgs::msg::TrafficSignals>::SharedPtr    subscriber_traffic_signals;
 
   rclcpp::TimerBase::SharedPtr main_timer;
 
@@ -76,6 +77,7 @@ private:
   void map_callback( const adore_ros2_msgs::msg::Map& msg );
   void route_callback( const adore_ros2_msgs::msg::Route& msg );
   void goal_callback( const adore_ros2_msgs::msg::GoalPoint& msg );
+  void traffic_signals_callback( const adore_ros2_msgs::msg::TrafficSignals& msg );
   void timer_callback();
 
   StateBuffer state_buffer;
