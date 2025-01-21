@@ -160,8 +160,8 @@ traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantS
     double unit_vector_y = -std::sin( heading ) + std::cos( heading );
 
     // Add rectangle marker for the participant
-    double participant_length = 1.0;
-    double participant_width  = 1.0;
+    double participant_length = 4.0;
+    double participant_width  = 1.8;
     double participant_height = 1.0;
     if( participant.participant_data.shape.dimensions.size() >= 3 )
     {
@@ -214,6 +214,13 @@ traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantS
                                                               0.2, // Line width
                                                               colors::gray, offset );
     heading_marker.lifetime = rclcpp::Duration::from_seconds( 0.2 ); // Add lifetime
+
+    if (participant.participant_data.predicted_trajectory.states.size() > 0) 
+    {
+      // Create the line marker for the trajectory
+      auto line_marker = primitives::create_line_marker( participant.participant_data.predicted_trajectory.states, "decision", participant.participant_data.tracking_id, 0.3, colors::green, offset );
+      marker_array.markers.push_back( line_marker );
+    }
     marker_array.markers.push_back( heading_marker );
   }
 
