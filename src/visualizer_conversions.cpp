@@ -153,11 +153,11 @@ traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantS
   for( const auto& participant : participant_set.data )
   {
     const auto& state   = participant.participant_data.motion_state;
-    double      heading = state.yaw_angle; // + M_PI / 4;
+    double      heading = state.yaw_angle;
 
     // Compute unit vector for heading
-    double unit_vector_x = std::cos( heading ) + std::sin( heading );
-    double unit_vector_y = -std::sin( heading ) + std::cos( heading );
+    double unit_vector_x = std::cos( heading );
+    double unit_vector_y = std::sin( heading );
 
     // Add rectangle marker for the participant
     double participant_length = 4.0;
@@ -188,8 +188,8 @@ traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantS
     start.y = state.y;
 
     geometry_msgs::msg::Point end;
-    end.x = start.x + state.vx;
-    end.y = start.y + state.vy;
+    end.x = start.x + unit_vector_x * state.vx;
+    end.y = start.y + unit_vector_y * state.vx;
 
     static const int VEL_ID_OFFSET = 1000; // for separate id for velocity marker
 
@@ -215,10 +215,11 @@ traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantS
                                                               colors::gray, offset );
     heading_marker.lifetime = rclcpp::Duration::from_seconds( 0.2 ); // Add lifetime
 
-    if (participant.participant_data.predicted_trajectory.states.size() > 0) 
+    if( participant.participant_data.predicted_trajectory.states.size() > 0 )
     {
       // Create the line marker for the trajectory
-      auto line_marker = primitives::create_line_marker( participant.participant_data.predicted_trajectory.states, "decision", participant.participant_data.tracking_id, 0.3, colors::green, offset );
+      auto line_marker = primitives::create_line_marker( participant.participant_data.predicted_trajectory.states, "decision",
+                                                         participant.participant_data.tracking_id, 0.3, colors::green, offset );
       marker_array.markers.push_back( line_marker );
     }
     marker_array.markers.push_back( heading_marker );
@@ -304,9 +305,7 @@ state_to_markers( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Of
                                                                                         4.5, // Length
                                                                                         2.0, // Width
                                                                                         1.5, // Height
-                                                                                        msg.yaw_angle, "ego_vehicle", 0, colors::blue,
-                                                                                        offset // Red color with 80% opacity
-                         );
+                                                                                        msg.yaw_angle, "ego_vehicle", 0, colors::blue, offset );
   ego_vehicle_marker.mesh_use_embedded_materials = true;
   marker_array.markers.push_back( ego_vehicle_marker );
 
