@@ -38,9 +38,12 @@ Visualizer::Visualizer() :
                    "controller_trajectory",
                    "ego_vehicle",
                    "goal",
-                   "traffic_signals" };
+                   "traffic_signals",
+                   "trajectory_suggestion",
+                   "remote_operation_waypoints",
+                   "caution_zones" };
 
-  visualizing_trajectory_names = { "trajectory_decision", "planned_trajectory", "controller_trajectory" };
+  visualizing_trajectory_names = { "trajectory_decision", "planned_trajectory", "controller_trajectory", "trajectory_suggestion" };
 
   declare_parameter( "asset folder", "" );
   get_parameter( "asset folder", maps_folder );
@@ -71,6 +74,28 @@ Visualizer::create_publishers()
 }
 
 void
+Visualizer::create_trajectory_subscribers()
+{
+  // Iterate over the trajectory names and create a subscription for each.
+  for( const auto& traj_name : visualizing_trajectory_names )
+  {
+    auto subscription = create_subscription<adore_ros2_msgs::msg::Trajectory>(
+      traj_name, 1,
+      [this, traj_name]( const adore_ros2_msgs::msg::Trajectory::SharedPtr msg ) { this->handle_trajectory( msg, traj_name ); } );
+    trajectory_subscribers.push_back( subscription );
+  }
+}
+
+// This is the common callback for all trajectory topics.
+void
+Visualizer::handle_trajectory( const adore_ros2_msgs::msg::Trajectory::SharedPtr msg, const std::string& trajectory_type )
+{
+  MarkerArray marker_array            = conversions::trajectory_to_markers( *msg, offset );
+  markers_to_publish[trajectory_type] = marker_array;
+  trajectory_publishers[trajectory_type]->publish( dynamics::conversions::transpose( *msg ) );
+}
+
+void
 Visualizer::create_subscribers()
 {
   // Subscriber for traffic participants
@@ -85,17 +110,6 @@ Visualizer::create_subscribers()
   subscriber_vehicle_state_dynamic = create_subscription<adore_ros2_msgs::msg::VehicleStateDynamic>(
     "vehicle_state/dynamic", 1, std::bind( &Visualizer::vehicle_state_dynamic_callback, this, std::placeholders::_1 ) );
 
-
-  subscriber_decision = create_subscription<adore_ros2_msgs::msg::Trajectory>( "trajectory_decision", 1,
-                                                                               std::bind( &Visualizer::decision_callback, this,
-                                                                                          std::placeholders::_1 ) );
-
-  subscriber_trajectory = create_subscription<adore_ros2_msgs::msg::Trajectory>( "planned_trajectory", 1,
-                                                                                 std::bind( &Visualizer::trajectory_callback, this,
-                                                                                            std::placeholders::_1 ) );
-
-  subscriber_controller_trajectory = create_subscription<adore_ros2_msgs::msg::Trajectory>(
-    "controller_trajectory", 1, std::bind( &Visualizer::controller_trajectory_callback, this, std::placeholders::_1 ) );
 
   subscriber_safety_corridor = create_subscription<adore_ros2_msgs::msg::SafetyCorridor>( "safety_corridor", 1,
                                                                                           std::bind( &Visualizer::safety_corridor_callback,
@@ -119,6 +133,16 @@ Visualizer::create_subscribers()
   subscriber_traffic_signals = create_subscription<adore_ros2_msgs::msg::TrafficSignals>( "traffic_signals", 10,
                                                                                           std::bind( &Visualizer::traffic_signals_callback,
                                                                                                      this, std::placeholders::_1 ) );
+
+  subscriber_waypoints = create_subscription<adore_ros2_msgs::msg::Waypoints>( "remote_operation_waypoints", 10,
+                                                                               std::bind( &Visualizer::waypoints_callback, this,
+                                                                                          std::placeholders::_1 ) );
+
+  subscriber_caution_zones = create_subscription<adore_ros2_msgs::msg::CautionZone>( "caution_zones", 10,
+                                                                                     std::bind( &Visualizer::caution_zones_callback, this,
+                                                                                                std::placeholders::_1 ) );
+
+  create_trajectory_subscribers();
 
   main_timer = create_wall_timer( 100ms, std::bind( &Visualizer::timer_callback, this ) );
 }
@@ -218,30 +242,6 @@ Visualizer::ignored_participants_callback( const adore_ros2_msgs::msg::TrafficPa
 }
 
 void
-Visualizer::decision_callback( const adore_ros2_msgs::msg::Trajectory& msg )
-{
-  MarkerArray marker_array                  = conversions::trajectory_to_markers( msg, offset );
-  markers_to_publish["trajectory_decision"] = marker_array;
-  trajectory_publishers["trajectory_decision"]->publish( dynamics::conversions::transpose( msg ) );
-}
-
-void
-Visualizer::trajectory_callback( const adore_ros2_msgs::msg::Trajectory& msg )
-{
-  MarkerArray marker_array                 = conversions::trajectory_to_markers( msg, offset );
-  markers_to_publish["planned_trajectory"] = marker_array;
-  trajectory_publishers["planned_trajectory"]->publish( dynamics::conversions::transpose( msg ) );
-}
-
-void
-Visualizer::controller_trajectory_callback( const adore_ros2_msgs::msg::Trajectory& msg )
-{
-  MarkerArray marker_array                    = conversions::trajectory_to_markers( msg, offset );
-  markers_to_publish["controller_trajectory"] = marker_array;
-  trajectory_publishers["controller_trajectory"]->publish( dynamics::conversions::transpose( msg ) );
-}
-
-void
 Visualizer::safety_corridor_callback( const adore_ros2_msgs::msg::SafetyCorridor& msg )
 {
   MarkerArray marker_array              = conversions::safety_corridor_to_markers( msg, offset );
@@ -263,6 +263,26 @@ Visualizer::traffic_signals_callback( const adore_ros2_msgs::msg::TrafficSignals
 
   // Publish the MarkerArray
   markers_to_publish["traffic_signals"] = marker_array;
+}
+
+void
+Visualizer::caution_zones_callback( const adore_ros2_msgs::msg::CautionZone& msg )
+{
+  // Convert the message to MarkerArray using the conversion function
+  auto marker_array = conversions::caution_zone_to_markers( msg, offset );
+
+  // Publish the MarkerArray
+  markers_to_publish["caution_zones"] = marker_array;
+}
+
+void
+Visualizer::waypoints_callback( const adore_ros2_msgs::msg::Waypoints& msg )
+{
+  // Convert the message to MarkerArray using the conversion function
+  auto marker_array = conversions::waypoints_to_markers( msg, offset );
+
+  // Publish the MarkerArray
+  markers_to_publish["remote_operation_waypoints"] = marker_array;
 }
 
 void

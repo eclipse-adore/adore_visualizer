@@ -357,6 +357,71 @@ traffic_signals_to_markers( const adore_ros2_msgs::msg::TrafficSignals& traffic_
   return marker_array;
 }
 
+// Conversion function for Waypoints message (just showing the points)
+MarkerArray
+waypoints_to_markers( const adore_ros2_msgs::msg::Waypoints& waypoints_msg, const Offset& offset )
+{
+  MarkerArray marker_array;
+
+  // Iterate over each waypoint and create a sphere marker
+  for( size_t i = 0; i < waypoints_msg.waypoints.size(); ++i )
+  {
+    const auto& point = waypoints_msg.waypoints[i];
+    // Create a sphere marker at the waypoint location (using a default scale, e.g., 0.2)
+    Marker sphere_marker = primitives::create_sphere_marker( point.x, point.y, point.z,
+                                                             0.3,         // Scale (radius)
+                                                             "waypoints", // Namespace
+                                                             i,           // ID
+                                                             colors::purple, offset );
+    marker_array.markers.push_back( sphere_marker );
+  }
+
+  return marker_array;
+}
+
+MarkerArray
+caution_zone_to_markers( const adore_ros2_msgs::msg::CautionZone& caution_zone, const Offset& offset )
+{
+  MarkerArray marker_array;
+
+  // Check if the polygon contains points
+  if( caution_zone.polygon.points.empty() )
+  {
+    return marker_array;
+  }
+
+  auto polygon_points = caution_zone.polygon.points;
+
+  // Ensure that the polygon is closed. If the first and last points are not identical, add the first point at the end.
+  if( polygon_points.front().x != polygon_points.back().x || polygon_points.front().y != polygon_points.back().y )
+  {
+    polygon_points.push_back( polygon_points.front() );
+  }
+
+  Marker line_marker = primitives::create_line_marker( polygon_points, "caution_zone", 0, 0.3, colors::orange, offset );
+  marker_array.markers.push_back( line_marker );
+
+  // Optionally, add a text marker for the label of the caution zone.
+  // Compute the centroid of the polygon to position the label.
+  double centroid_x = 0.0;
+  double centroid_y = 0.0;
+  for( const auto& pt : polygon_points )
+  {
+    centroid_x += pt.x;
+    centroid_y += pt.y;
+  }
+  size_t num_points  = polygon_points.size();
+  centroid_x        /= num_points;
+  centroid_y        /= num_points;
+
+  MarkerArray text_markers = primitives::create_text_marker( centroid_x, centroid_y, caution_zone.label,
+                                                             1.0,            // Text size
+                                                             colors::orange, // Text color
+                                                             caution_zone.label, offset );
+  marker_array.markers.insert( marker_array.markers.end(), text_markers.markers.begin(), text_markers.markers.end() );
+
+  return marker_array;
+}
 } // namespace conversions
 } // namespace visualizer
 } // namespace adore

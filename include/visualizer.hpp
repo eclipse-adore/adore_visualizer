@@ -42,15 +42,16 @@ private:
   rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr subscriber_ignored_participants;
   rclcpp::Subscription<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr   subscriber_vehicle_state_dynamic;
 
-  rclcpp::Subscription<adore_ros2_msgs::msg::Trajectory>::SharedPtr        subscriber_decision;
-  rclcpp::Subscription<adore_ros2_msgs::msg::Trajectory>::SharedPtr        subscriber_trajectory;
-  rclcpp::Subscription<adore_ros2_msgs::msg::Trajectory>::SharedPtr        subscriber_controller_trajectory;
   rclcpp::Subscription<adore_ros2_msgs::msg::SafetyCorridor>::SharedPtr    subscriber_safety_corridor;
   rclcpp::Subscription<adore_ros2_msgs::msg::TrafficPrediction>::SharedPtr subscriber_traffic_prediction;
   rclcpp::Subscription<adore_ros2_msgs::msg::Route>::SharedPtr             subscriber_route;
   rclcpp::Subscription<adore_ros2_msgs::msg::Map>::SharedPtr               subscriber_local_map;
   rclcpp::Subscription<adore_ros2_msgs::msg::GoalPoint>::SharedPtr         subscriber_goal;
   rclcpp::Subscription<adore_ros2_msgs::msg::TrafficSignals>::SharedPtr    subscriber_traffic_signals;
+  rclcpp::Subscription<adore_ros2_msgs::msg::CautionZone>::SharedPtr       subscriber_caution_zones;
+  rclcpp::Subscription<adore_ros2_msgs::msg::Waypoints>::SharedPtr         subscriber_waypoints;
+
+  std::vector<rclcpp::Subscription<adore_ros2_msgs::msg::Trajectory>::SharedPtr> trajectory_subscribers;
 
   rclcpp::TimerBase::SharedPtr main_timer;
 
@@ -69,15 +70,18 @@ private:
   void traffic_participants_callback( const adore_ros2_msgs::msg::TrafficParticipantSet& msg );
   void ignored_participants_callback( const adore_ros2_msgs::msg::TrafficParticipantSet& msg );
   void vehicle_state_dynamic_callback( const adore_ros2_msgs::msg::VehicleStateDynamic& msg );
-  void decision_callback( const adore_ros2_msgs::msg::Trajectory& msg );
-  void trajectory_callback( const adore_ros2_msgs::msg::Trajectory& msg );
-  void controller_trajectory_callback( const adore_ros2_msgs::msg::Trajectory& msg );
   void safety_corridor_callback( const adore_ros2_msgs::msg::SafetyCorridor& msg );
   void traffic_prediction_callback( const adore_ros2_msgs::msg::TrafficPrediction& msg );
   void map_callback( const adore_ros2_msgs::msg::Map& msg );
   void route_callback( const adore_ros2_msgs::msg::Route& msg );
   void goal_callback( const adore_ros2_msgs::msg::GoalPoint& msg );
+  void caution_zones_callback( const adore_ros2_msgs::msg::CautionZone& msg );
+  void waypoints_callback( const adore_ros2_msgs::msg::Waypoints& msg );
   void traffic_signals_callback( const adore_ros2_msgs::msg::TrafficSignals& msg );
+
+
+  void handle_trajectory( const adore_ros2_msgs::msg::Trajectory::SharedPtr msg, const std::string& trajectory_type );
+
   void timer_callback();
 
   StateBuffer state_buffer;
@@ -102,6 +106,7 @@ public:
 
   // Function to create and store subscribers for various topics
   void create_subscribers();
+  void create_trajectory_subscribers();
 
   // Function to create publishers for various topics
   void create_publishers();

@@ -18,10 +18,12 @@
 #include "adore_ros2_msgs/msg/goal_point.hpp"
 #include "adore_ros2_msgs/msg/route.hpp"
 #include "adore_ros2_msgs/msg/trajectory.hpp"
+#include <adore_ros2_msgs/msg/caution_zone.hpp>
 #include <adore_ros2_msgs/msg/safety_corridor.hpp>
 #include <adore_ros2_msgs/msg/traffic_participant_set.hpp>
 #include <adore_ros2_msgs/msg/traffic_prediction.hpp>
 #include <adore_ros2_msgs/msg/traffic_signals.hpp>
+#include <adore_ros2_msgs/msg/waypoints.hpp>
 
 #include "color_palette.hpp"
 #include "state_buffer.hpp"
@@ -68,6 +70,9 @@ MarkerArray goal_to_marker_array( const adore_ros2_msgs::msg::GoalPoint& route, 
 
 MarkerArray traffic_signals_to_markers( const adore_ros2_msgs::msg::TrafficSignals& traffic_signals, const Offset& offset );
 
+MarkerArray caution_zone_to_markers( const adore_ros2_msgs::msg::CautionZone& caution_zone, const Offset& offset );
+
+MarkerArray waypoints_to_markers( const adore_ros2_msgs::msg::Waypoints& waypoints_msg, const Offset& offset );
 
 } // namespace conversions
 } // namespace visualizer
