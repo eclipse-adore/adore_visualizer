@@ -174,7 +174,7 @@ generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic 
                                                       networking_disabled );
 
 
-  cloud_msg.header.frame_id = "map_cloud";
+  cloud_msg.header.frame_id = "visualization_offset";
   cloud_msg.header.stamp    = rclcpp::Clock().now();
 
   if( !map_image )

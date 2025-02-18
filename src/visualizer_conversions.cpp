@@ -24,7 +24,7 @@ namespace conversions
 {
 // Conversion function for time-based odometry buffer to a marker array using the templated line drawing primitive
 MarkerArray
-state_buffer_to_markers( const StateBuffer& state_buffer, const Offset& offset )
+to_marker_array( const StateBuffer& state_buffer, const Offset& offset )
 {
   MarkerArray marker_array;
 
@@ -47,7 +47,7 @@ state_buffer_to_markers( const StateBuffer& state_buffer, const Offset& offset )
 }
 
 MarkerArray
-safety_corridor_to_markers( const adore_ros2_msgs::msg::SafetyCorridor& safety_corridor, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::SafetyCorridor& safety_corridor, const Offset& offset )
 {
   MarkerArray marker_array;
 
@@ -62,7 +62,7 @@ safety_corridor_to_markers( const adore_ros2_msgs::msg::SafetyCorridor& safety_c
 }
 
 MarkerArray
-traffic_prediction_to_markers( const adore_ros2_msgs::msg::TrafficPrediction& traffic_prediction, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::TrafficPrediction& traffic_prediction, const Offset& offset )
 {
   MarkerArray marker_array;
 
@@ -79,7 +79,7 @@ traffic_prediction_to_markers( const adore_ros2_msgs::msg::TrafficPrediction& tr
 }
 
 MarkerArray
-map_to_marker_array( const adore_ros2_msgs::msg::Map& local_map_msg, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::Map& local_map_msg, const Offset& offset )
 {
   MarkerArray marker_array;
 
@@ -101,7 +101,7 @@ map_to_marker_array( const adore_ros2_msgs::msg::Map& local_map_msg, const Offse
 }
 
 MarkerArray
-route_to_marker_array( const adore_ros2_msgs::msg::Route& route, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::Route& route, const Offset& offset )
 {
 
   MarkerArray marker_array;
@@ -113,7 +113,7 @@ route_to_marker_array( const adore_ros2_msgs::msg::Route& route, const Offset& o
 }
 
 MarkerArray
-goal_to_marker_array( const adore_ros2_msgs::msg::GoalPoint& goal, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::GoalPoint& goal, const Offset& offset )
 {
   MarkerArray marker_array;
 
@@ -149,7 +149,7 @@ goal_to_marker_array( const adore_ros2_msgs::msg::GoalPoint& goal, const Offset&
 }
 
 MarkerArray
-traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_set, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_set, const Offset& offset )
 {
   MarkerArray marker_array;
 
@@ -236,42 +236,16 @@ traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantS
   }
   auto closed_border = participant_set.validity_area.points;
   if( closed_border.size() > 0 )
-    closed_border.push_back( closed_border.front() );
-  auto boundary_marker = primitives::create_line_marker( closed_border, "boundary", 999, 0.2, colors::purple, offset );
-  marker_array.markers.push_back( boundary_marker );
-
-  return marker_array;
-}
-
-MarkerArray
-ignored_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantSet& ignored_participant_set, const Offset& offset )
-{
-  MarkerArray marker_array;
-
-  for( const auto& ignored : ignored_participant_set.data )
   {
-    const auto& state   = ignored.participant_data.motion_state;
-    double      heading = state.yaw_angle;
-
-    // Add rectangle marker for the ignored participant
-    auto rectangle_marker     = primitives::create_rectangle_marker( state.x, state.y,
-                                                                     0.2,                                          // Z position for height
-                                                                     ignored.participant_data.shape.dimensions[0], // Length
-                                                                     ignored.participant_data.shape.dimensions[1], // Width
-                                                                     ignored.participant_data.shape.dimensions[2], // Height
-                                                                     heading,                                      // Orientation
-                                                                     "traffic_participant",                        // Namespace
-                                                                     ignored.participant_data.tracking_id,         // ID
-                                                                     colors::gray, offset );
-    rectangle_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
-    marker_array.markers.push_back( rectangle_marker );
+    closed_border.push_back( closed_border.front() );
+    auto boundary_marker = primitives::create_line_marker( closed_border, "boundary", 999, 0.2, colors::purple, offset );
+    marker_array.markers.push_back( boundary_marker );
   }
-
   return marker_array;
 }
 
 MarkerArray
-trajectory_to_markers( const adore_ros2_msgs::msg::Trajectory& trajectory, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory, const Offset& offset )
 {
   MarkerArray marker_array;
 
@@ -310,7 +284,7 @@ trajectory_to_markers( const adore_ros2_msgs::msg::Trajectory& trajectory, const
 
 // Conversion function for odometry to markers
 MarkerArray
-state_to_markers( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Offset& offset )
 {
   MarkerArray marker_array;
 
@@ -328,7 +302,7 @@ state_to_markers( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Of
 }
 
 MarkerArray
-traffic_signals_to_markers( const adore_ros2_msgs::msg::TrafficSignals& traffic_signals, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::TrafficSignals& traffic_signals, const Offset& offset )
 {
   MarkerArray marker_array;
 
@@ -374,7 +348,7 @@ traffic_signals_to_markers( const adore_ros2_msgs::msg::TrafficSignals& traffic_
 
 // Conversion function for Waypoints message (just showing the points)
 MarkerArray
-waypoints_to_markers( const adore_ros2_msgs::msg::Waypoints& waypoints_msg, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::Waypoints& waypoints_msg, const Offset& offset )
 {
   MarkerArray marker_array;
 
@@ -395,7 +369,7 @@ waypoints_to_markers( const adore_ros2_msgs::msg::Waypoints& waypoints_msg, cons
 }
 
 MarkerArray
-caution_zone_to_markers( const adore_ros2_msgs::msg::CautionZone& caution_zone, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::CautionZone& caution_zone, const Offset& offset )
 {
   MarkerArray marker_array;
 
