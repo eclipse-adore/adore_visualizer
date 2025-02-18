@@ -26,6 +26,7 @@
 #include "visualizer_conversions.hpp"
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 namespace adore
@@ -57,7 +58,9 @@ private:
 
   std::unique_ptr<tf2_ros::TransformBroadcaster> visualisation_transform_broadcaster;
 
-  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_publisher;
+  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr  map_publisher;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_cloud_publisher;
+
 
   // Map to store publishers for MarkerArray for different topics
   std::unordered_map<std::string, rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr>      marker_publishers;

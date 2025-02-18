@@ -22,7 +22,7 @@ namespace visualizer
 
 Visualizer::Visualizer() :
   Node( "visualizer_node" ),
-  state_buffer( 20.0 )
+  state_buffer( 10.0 )
 {
 
   marker_names = { "borders",
@@ -64,7 +64,9 @@ Visualizer::create_publishers()
 
   visualisation_transform_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>( this );
 
-  map_publisher = create_publisher<nav_msgs::msg::OccupancyGrid>( "map", 10 );
+  map_publisher       = create_publisher<nav_msgs::msg::OccupancyGrid>( "map", 1 );
+  map_cloud_publisher = create_publisher<sensor_msgs::msg::PointCloud2>( "map_cloud", 1 );
+
 
   for( const auto& name : visualizing_trajectory_names )
   {
@@ -161,6 +163,11 @@ Visualizer::timer_callback()
   occupancy_grid.header.frame_id = "visualization_offset";
 
   map_publisher->publish( occupancy_grid );
+
+  auto cloud            = map_image::generate_pointcloud2( offset, latest_state.value(), maps_folder, false );
+  cloud.header.frame_id = "visualization_offset";
+
+  map_cloud_publisher->publish( cloud );
 }
 
 void

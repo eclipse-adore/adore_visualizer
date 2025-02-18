@@ -28,6 +28,8 @@
 #include "visualization_primitives.hpp"
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 
 namespace adore
@@ -42,6 +44,10 @@ std::optional<cv::Mat> fetch_map_image( int map_tile_x, int map_tile_y, double t
 // Main function that converts a map image to an occupancy grid
 nav_msgs::msg::OccupancyGrid generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynamic &vehicle_odometry,
                                                       const std::string &map_storage_path, bool networking_disabled );
+
+sensor_msgs::msg::PointCloud2 generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic &vehicle_state,
+                                                    const std::string &map_storage_path, bool networking_disabled );
+
 } // namespace map_image
 } // namespace visualizer
 } // namespace adore

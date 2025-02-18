@@ -91,10 +91,10 @@ generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynam
                          bool networking_disabled )
 {
 
-  double tile_size = 100; // generate new image if the car leaves this range
-  double map_size  = 400; // show is size
+  double tile_size = 50; // generate new image if the car leaves this range
+  double map_size  = 50; // show is size
 
-  double pixels_per_meter = 2;
+  double pixels_per_meter = 5;
   int    image_pixels     = ( tile_size + map_size ) * pixels_per_meter;
 
   // Prepare the occupancy grid message
@@ -152,6 +152,82 @@ generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynam
 
   return occupancy_grid_msg;
 }
+
+sensor_msgs::msg::PointCloud2
+generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic &vehicle_state, const std::string &map_storage_path,
+                      bool networking_disabled )
+{
+  double tile_size        = 100; // Generate new image if the car leaves this range
+  double map_size         = 100; // Visible size
+  double pixels_per_meter = 5;
+  int    image_pixels     = ( tile_size + map_size ) * pixels_per_meter;
+
+  // Prepare the PointCloud2 message
+  sensor_msgs::msg::PointCloud2 cloud_msg;
+
+  // Identify which map tile corresponds to the vehicle's current position
+  int map_tile_x = std::floor( vehicle_state.x / tile_size );
+  int map_tile_y = std::floor( vehicle_state.y / tile_size );
+
+  // Load the map image for the current tile
+  std::optional<cv::Mat> map_image = fetch_map_image( map_tile_x, map_tile_y, tile_size, map_size, image_pixels, map_storage_path,
+                                                      networking_disabled );
+
+
+  cloud_msg.header.frame_id = "map_cloud";
+  cloud_msg.header.stamp    = rclcpp::Clock().now();
+
+  if( !map_image )
+  {
+    return cloud_msg; // Return empty if no image is available
+  }
+  cloud_msg.width    = map_image.value().cols;
+  cloud_msg.height   = map_image.value().rows;
+  cloud_msg.is_dense = true;
+
+
+  // Define fields: x, y, z (position) and rgb (color)
+  sensor_msgs::PointCloud2Modifier modifier( cloud_msg );
+  modifier.setPointCloud2Fields( 4, "x", 1, sensor_msgs::msg::PointField::FLOAT32, "y", 1, sensor_msgs::msg::PointField::FLOAT32, "z", 1,
+                                 sensor_msgs::msg::PointField::FLOAT32, "rgb", 1, sensor_msgs::msg::PointField::FLOAT32 );
+
+  // Set the origin of the map
+  double map_origin_x = map_tile_x * tile_size - offset.x - map_size / 2;
+  double map_origin_y = map_tile_y * tile_size - offset.y + map_size / 2 + tile_size;
+
+  sensor_msgs::PointCloud2Iterator<float>   iter_x( cloud_msg, "x" );
+  sensor_msgs::PointCloud2Iterator<float>   iter_y( cloud_msg, "y" );
+  sensor_msgs::PointCloud2Iterator<float>   iter_z( cloud_msg, "z" );
+  sensor_msgs::PointCloud2Iterator<uint8_t> iter_r( cloud_msg, "rgb" );
+
+  for( int row = 0; row < map_image.value().rows; ++row )
+  {
+    for( int col = 0; col < map_image.value().cols; ++col )
+    {
+      cv::Vec3b color = map_image.value().at<cv::Vec3b>( row, col );
+      uchar     b     = color[0];
+      uchar     g     = color[1];
+      uchar     r     = color[2];
+
+      // Convert image pixel to real-world coordinates
+      *iter_x = map_origin_x + col / pixels_per_meter;
+      *iter_y = map_origin_y - row / pixels_per_meter;
+      *iter_z = -0.8; // Flat ground
+
+      // Encode RGB color in a single 32-bit field
+      uint32_t rgb = ( static_cast<uint32_t>( r ) << 16 ) | ( static_cast<uint32_t>( g ) << 8 ) | static_cast<uint32_t>( b );
+      *reinterpret_cast<uint32_t *>( &( *iter_r ) ) = rgb;
+
+      ++iter_x;
+      ++iter_y;
+      ++iter_z;
+      ++iter_r;
+    }
+  }
+
+  return cloud_msg;
+}
+
 } // namespace map_image
 } // namespace visualizer
 } // namespace adore
