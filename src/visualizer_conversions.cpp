@@ -13,6 +13,9 @@
  ********************************************************************************/
 #include "visualizer_conversions.hpp"
 
+#include "color_palette.hpp"
+#include "visualization_primitives.hpp"
+
 namespace adore
 {
 namespace visualizer
@@ -170,6 +173,10 @@ traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantS
       participant_height = participant.participant_data.shape.dimensions[2];
     }
 
+    auto participant_color = participant.participant_data.goal_point.x < 0.01 ? colors::red : colors::purple;
+
+
+    participant_color[4]      = 0.3;
     auto rectangle_marker     = primitives::create_rectangle_marker( state.x, state.y,
                                                                      0.2,                                      // Z position for height
                                                                      participant_length,                       // Length
@@ -178,8 +185,8 @@ traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantS
                                                                      heading,                                  // Orientation
                                                                      "traffic_participant",                    // Namespace
                                                                      participant.participant_data.tracking_id, // ID
-                                                                     colors::red, offset );
-    rectangle_marker.lifetime = rclcpp::Duration::from_seconds( 0.2 ); // Add lifetime
+                                                                     participant_color, offset );
+    rectangle_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
     marker_array.markers.push_back( rectangle_marker );
 
     // Add velocity line marker
@@ -191,7 +198,7 @@ traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantS
     end.x = start.x + unit_vector_x * state.vx;
     end.y = start.y + unit_vector_y * state.vx;
 
-    static const int VEL_ID_OFFSET = 1000; // for separate id for velocity marker
+    static const int VEL_ID_OFFSET = 100; // for separate id for velocity marker
 
     auto velocity_marker     = primitives::create_line_marker( start, end, "participant_velocity",
                                                                participant.participant_data.tracking_id + VEL_ID_OFFSET,
@@ -199,7 +206,7 @@ traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantS
                                                                colors::orange, offset // Light blue color with 50% opacity
         );
     velocity_marker.type     = velocity_marker.ARROW;
-    velocity_marker.lifetime = rclcpp::Duration::from_seconds( 0.2 ); // Add lifetime
+    velocity_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
     marker_array.markers.push_back( velocity_marker );
 
     // Add heading line marker
@@ -207,23 +214,31 @@ traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantS
     heading_end.x = start.x + unit_vector_x;
     heading_end.y = start.y + unit_vector_y;
 
-    static const int HEADING_ID_OFFSET = 1000000; // for separate id for heading marker
+    static const int HEADING_ID_OFFSET = 10000; // for separate id for heading marker
 
-    auto heading_marker     = primitives::create_line_marker( start, heading_end, "participant_heading",
-                                                              participant.participant_data.tracking_id + HEADING_ID_OFFSET,
-                                                              0.2, // Line width
-                                                              colors::gray, offset );
-    heading_marker.lifetime = rclcpp::Duration::from_seconds( 0.2 ); // Add lifetime
-
+    auto heading_marker                   = primitives::create_line_marker( start, heading_end, "participant_heading",
+                                                                            participant.participant_data.tracking_id + HEADING_ID_OFFSET,
+                                                                            0.2, // Line width
+                                                                            colors::gray, offset );
+    heading_marker.lifetime               = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
+    static const int TRAJECTORY_ID_OFFSET = 1000000;
     if( participant.participant_data.predicted_trajectory.states.size() > 0 )
     {
       // Create the line marker for the trajectory
       auto line_marker = primitives::create_line_marker( participant.participant_data.predicted_trajectory.states, "decision",
-                                                         participant.participant_data.tracking_id, 0.3, colors::green, offset );
+                                                         participant.participant_data.tracking_id + TRAJECTORY_ID_OFFSET, 0.3,
+                                                         colors::green, offset );
+
+      line_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 );
       marker_array.markers.push_back( line_marker );
     }
     marker_array.markers.push_back( heading_marker );
   }
+  auto closed_border = participant_set.validity_area.points;
+  if( closed_border.size() > 0 )
+    closed_border.push_back( closed_border.front() );
+  auto boundary_marker = primitives::create_line_marker( closed_border, "boundary", 999, 0.2, colors::purple, offset );
+  marker_array.markers.push_back( boundary_marker );
 
   return marker_array;
 }
@@ -248,7 +263,7 @@ ignored_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantS
                                                                      "traffic_participant",                        // Namespace
                                                                      ignored.participant_data.tracking_id,         // ID
                                                                      colors::gray, offset );
-    rectangle_marker.lifetime = rclcpp::Duration::from_seconds( 0.2 ); // Add lifetime
+    rectangle_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
     marker_array.markers.push_back( rectangle_marker );
   }
 

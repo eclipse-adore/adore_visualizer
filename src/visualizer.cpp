@@ -31,7 +31,7 @@ Visualizer::Visualizer() :
                    "ignored_participants",
                    "traffic_prediction",
                    "route",
-                   "traffic_participants",
+                   "traffic_decision",
                    "driven_path",
                    "trajectory_decision",
                    "planned_trajectory",
@@ -100,7 +100,7 @@ Visualizer::create_subscribers()
 {
   // Subscriber for traffic participants
   subscriber_traffic_participants = create_subscription<adore_ros2_msgs::msg::TrafficParticipantSet>(
-    "traffic_participants", 1, std::bind( &Visualizer::traffic_participants_callback, this, std::placeholders::_1 ) );
+    "traffic_decision", 1, std::bind( &Visualizer::traffic_participants_callback, this, std::placeholders::_1 ) );
 
   // Subscriber for traffic participants
   subscriber_ignored_participants = create_subscription<adore_ros2_msgs::msg::TrafficParticipantSet>(
@@ -228,7 +228,7 @@ Visualizer::traffic_participants_callback( const adore_ros2_msgs::msg::TrafficPa
   auto marker_array = conversions::traffic_participants_to_markers( msg, offset );
 
   // Publish the MarkerArray
-  markers_to_publish["traffic_participants"] = marker_array;
+  markers_to_publish["traffic_decision"] = marker_array;
 }
 
 void
