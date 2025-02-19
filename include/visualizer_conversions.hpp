@@ -57,8 +57,6 @@ MarkerArray to_marker_array( const StateBuffer& odometry_buffer, const Offset& o
 
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::SafetyCorridor& safety_corridor, const Offset& offset );
 
-MarkerArray to_marker_array( const adore_ros2_msgs::msg::TrafficPrediction& traffic_prediction, const Offset& offset );
-
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::Map& local_map, const Offset& offset );
 
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::Route& route, const Offset& offset );

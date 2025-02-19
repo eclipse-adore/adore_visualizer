@@ -61,20 +61,6 @@ to_marker_array( const adore_ros2_msgs::msg::SafetyCorridor& safety_corridor, co
 }
 
 MarkerArray
-to_marker_array( const adore_ros2_msgs::msg::TrafficPrediction& traffic_prediction, const Offset& offset )
-{
-  MarkerArray marker_array;
-  for( const auto& vehicle : traffic_prediction.traffic_prediction )
-  {
-    auto line_marker = primitives::create_line_marker( vehicle.trajectory_prediction.states, "traffic_prediction", 0, 0.6, colors::green,
-                                                       offset );
-    marker_array.markers.push_back( line_marker );
-  }
-
-  return marker_array;
-}
-
-MarkerArray
 to_marker_array( const adore_ros2_msgs::msg::Map& local_map_msg, const Offset& offset )
 {
   MarkerArray marker_array;
@@ -220,7 +206,7 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
     {
       // Create the line marker for the trajectory
       auto line_marker = primitives::create_line_marker( participant.participant_data.predicted_trajectory.states, "decision",
-                                                         participant.participant_data.tracking_id + TRAJECTORY_ID_OFFSET, 0.3,
+                                                         participant.participant_data.tracking_id + TRAJECTORY_ID_OFFSET, 1.8,
                                                          colors::green, offset );
 
       line_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 );
@@ -244,7 +230,8 @@ to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory, const Offse
   MarkerArray marker_array;
 
   // Create the line marker for the trajectory
-  auto line_marker = primitives::create_line_marker( trajectory.states, "decision", trajectory.request_id, 0.3, colors::green, offset );
+  auto line_marker = primitives::create_flat_line_marker( trajectory.states, "decision", trajectory.request_id, 1.8, colors::green,
+                                                          offset );
   marker_array.markers.push_back( line_marker );
 
   // Determine the position for the label
