@@ -34,13 +34,8 @@ to_marker_array( const StateBuffer& state_buffer, const Offset& offset )
     return marker_array; // Not enough points to create a line
   }
 
-  // Iterate over the buffer to create lines between consecutive points
-  for( size_t i = 1; i < buffer.size(); ++i )
-  {
-    Marker line_marker = primitives::create_line_marker( buffer[i - 1], buffer[i], "driven_path", i, 0.4, colors::blue, offset );
+  Marker line_marker = primitives::create_flat_line_marker( buffer, "driven_path", 1, 1.8, colors::soft_gray, offset );
 
-    marker_array.markers.push_back( line_marker );
-  }
 
   return marker_array;
 }
@@ -50,10 +45,11 @@ to_marker_array( const adore_ros2_msgs::msg::SafetyCorridor& safety_corridor, co
 {
   MarkerArray marker_array;
 
-  auto line_marker_left = primitives::create_line_marker( safety_corridor.left_border, "safety_left_border", 0, 0.6, colors::red, offset );
+  auto line_marker_left = primitives::create_line_marker( safety_corridor.left_border, "safety_left_border", 0, 0.6, colors::soft_red,
+                                                          offset );
   marker_array.markers.push_back( line_marker_left );
 
-  auto line_marker_right = primitives::create_line_marker( safety_corridor.right_border, "safety_right_border", 0, 0.6, colors::red,
+  auto line_marker_right = primitives::create_line_marker( safety_corridor.right_border, "safety_right_border", 0, 0.6, colors::soft_red,
                                                            offset );
   marker_array.markers.push_back( line_marker_right );
 
@@ -158,7 +154,7 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
 
     participant_color[4]      = 0.3;
     auto rectangle_marker     = primitives::create_rectangle_marker( state.x, state.y,
-                                                                     0.2,                                      // Z position for height
+                                                                     0.1,                                      // Z position for height
                                                                      participant_length,                       // Length
                                                                      participant_width,                        // Width
                                                                      participant_height,                       // Height (example)
@@ -182,9 +178,8 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
 
     auto velocity_marker     = primitives::create_line_marker( start, end, "participant_velocity",
                                                                participant.participant_data.tracking_id + VEL_ID_OFFSET,
-                                                               0.1,                   // Line width
-                                                               colors::orange, offset // Light blue color with 50% opacity
-        );
+                                                               0.1, // Line width
+                                                               colors::orange, offset );
     velocity_marker.type     = velocity_marker.ARROW;
     velocity_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
     marker_array.markers.push_back( velocity_marker );
@@ -205,9 +200,9 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
     if( participant.participant_data.predicted_trajectory.states.size() > 0 )
     {
       // Create the line marker for the trajectory
-      auto line_marker = primitives::create_line_marker( participant.participant_data.predicted_trajectory.states, "decision",
-                                                         participant.participant_data.tracking_id + TRAJECTORY_ID_OFFSET, 1.8,
-                                                         colors::green, offset );
+      auto line_marker = primitives::create_flat_line_marker( participant.participant_data.predicted_trajectory.states, "decision",
+                                                              participant.participant_data.tracking_id + TRAJECTORY_ID_OFFSET, 1.8,
+                                                              participant_color, offset );
 
       line_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 );
       marker_array.markers.push_back( line_marker );
@@ -218,7 +213,7 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
   if( closed_border.size() > 0 )
   {
     closed_border.push_back( closed_border.front() );
-    auto boundary_marker = primitives::create_line_marker( closed_border, "boundary", 999, 0.2, colors::purple, offset );
+    auto boundary_marker = primitives::create_line_marker( closed_border, "boundary", 999, 0.2, colors::soft_red, offset );
     marker_array.markers.push_back( boundary_marker );
   }
   return marker_array;
@@ -230,7 +225,7 @@ to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory, const Offse
   MarkerArray marker_array;
 
   // Create the line marker for the trajectory
-  auto line_marker = primitives::create_flat_line_marker( trajectory.states, "decision", trajectory.request_id, 1.8, colors::green,
+  auto line_marker = primitives::create_flat_line_marker( trajectory.states, "decision", trajectory.request_id, 1.8, colors::soft_blue,
                                                           offset );
   marker_array.markers.push_back( line_marker );
 
@@ -240,7 +235,7 @@ to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory, const Offse
   {
     const auto& first_state = trajectory.states[0];
     double      text_size   = 0.5;
-    Color       text_color  = colors::green;
+    Color       text_color  = colors::blue;
     std::string ns          = "trajectory_label";
 
     double forward_distance = 2.0; // 2 meters forward
@@ -368,7 +363,7 @@ to_marker_array( const adore_ros2_msgs::msg::CautionZone& caution_zone, const Of
     polygon_points.push_back( polygon_points.front() );
   }
 
-  Marker line_marker = primitives::create_line_marker( polygon_points, "caution_zone", 0, 0.3, colors::orange, offset );
+  Marker line_marker = primitives::create_flat_line_marker( polygon_points, "caution_zone", 0, 0.5, colors::soft_orange, offset );
   marker_array.markers.push_back( line_marker );
 
   // Optionally, add a text marker for the label of the caution zone.
