@@ -27,7 +27,6 @@ MarkerArray
 to_marker_array( const StateBuffer& state_buffer, const Offset& offset )
 {
   MarkerArray marker_array;
-
   const auto& buffer = state_buffer.get();
 
   if( buffer.size() < 2 )
@@ -65,11 +64,8 @@ MarkerArray
 to_marker_array( const adore_ros2_msgs::msg::TrafficPrediction& traffic_prediction, const Offset& offset )
 {
   MarkerArray marker_array;
-
-
   for( const auto& vehicle : traffic_prediction.traffic_prediction )
   {
-
     auto line_marker = primitives::create_line_marker( vehicle.trajectory_prediction.states, "traffic_prediction", 0, 0.6, colors::green,
                                                        offset );
     marker_array.markers.push_back( line_marker );
@@ -127,11 +123,9 @@ to_marker_array( const adore_ros2_msgs::msg::GoalPoint& goal, const Offset& offs
   // Create the goal text marker
   double      text_size  = 1.0; // Size of the text
   std::string text       = "Goal is here";
-  Color       text_color = colors::cyan; // Assuming you have a colors::blue defined
+  Color       text_color = colors::cyan;
   std::string ns         = "goal_text";
 
-  // Position the text next to the finish line marker
-  // Calculate the x and y positions for the text
   double finish_line_width = grid_cols * square_size;
   double text_spacing      = 0.5; // Additional spacing between the finish line and the text
 
@@ -289,15 +283,15 @@ to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Off
   MarkerArray marker_array;
 
   // Create a rectangle marker for the ego vehicle
-  auto ego_vehicle_marker                        = primitives::create_rectangle_marker( msg.x, msg.y,
-                                                                                        0.0, // Z height
-                                                                                        4.5, // Length
-                                                                                        2.0, // Width
-                                                                                        1.5, // Height
-                                                                                        msg.yaw_angle, "ego_vehicle", 0, colors::blue, offset );
+  auto ego_vehicle_marker = primitives::create_rectangle_marker( msg.x, msg.y,
+                                                                 0.0, // Z height
+                                                                 4.5, // Length
+                                                                 2.0, // Width
+                                                                 1.5, // Height
+                                                                 msg.yaw_angle, "ego_vehicle", 0, colors::blue, offset );
+
   ego_vehicle_marker.mesh_use_embedded_materials = true;
   marker_array.markers.push_back( ego_vehicle_marker );
-
   return marker_array;
 }
 

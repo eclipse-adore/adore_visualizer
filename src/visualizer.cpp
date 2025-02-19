@@ -40,40 +40,6 @@ Visualizer::create_publishers()
 }
 
 void
-Visualizer::update_trajectory_subscriptions()
-{
-  auto topic_names_and_types = get_topic_names_and_types();
-
-  for( const auto& topic_pair : topic_names_and_types )
-  {
-    const std::string&              topic_name = topic_pair.first;
-    const std::vector<std::string>& types      = topic_pair.second;
-
-    // Check whether this topic advertises our expected type.
-    if( std::find( types.begin(), types.end(), "adore_ros2_msgs/msg/Trajectory" ) != types.end() )
-    {
-      // If we haven't already subscribed to this topic, do so.
-      if( trajectory_subscriptions.find( topic_name ) == trajectory_subscriptions.end() )
-      {
-        trajectory_publishers[topic_name] = create_publisher<adore_ros2_msgs::msg::TrajectoryTranspose>( topic_name + "_transpose", 1 );
-        marker_publishers[topic_name]     = create_publisher<visualization_msgs::msg::MarkerArray>( "visualize_" + topic_name, 1 );
-        markers_to_publish[topic_name]    = MarkerArray(); // Initialize empty marker array until we get somethign to publish
-
-        auto subscription = create_subscription<adore_ros2_msgs::msg::Trajectory>(
-          topic_name, 1, [this, topic_name]( const adore_ros2_msgs::msg::Trajectory& msg ) {
-            markers_to_publish[topic_name] = conversions::to_marker_array( msg, offset );
-            trajectory_publishers[topic_name]->publish( dynamics::conversions::transpose( msg ) );
-          } );
-
-        trajectory_subscriptions[topic_name] = subscription;
-
-        RCLCPP_INFO( get_logger(), "Dynamically subscribed to topic: %s", topic_name.c_str() );
-      }
-    }
-  }
-}
-
-void
 Visualizer::update_all_dynamic_subscriptions()
 {
   update_dynamic_subscriptions<adore_ros2_msgs::msg::TrafficParticipantSet>( "adore_ros2_msgs/msg/TrafficParticipantSet" );
@@ -84,8 +50,6 @@ Visualizer::update_all_dynamic_subscriptions()
   update_dynamic_subscriptions<adore_ros2_msgs::msg::TrafficSignals>( "adore_ros2_msgs/msg/TrafficSignals" );
   update_dynamic_subscriptions<adore_ros2_msgs::msg::Waypoints>( "adore_ros2_msgs/msg/Waypoints" );
   update_dynamic_subscriptions<adore_ros2_msgs::msg::CautionZone>( "adore_ros2_msgs/msg/CautionZone" );
-
-  update_trajectory_subscriptions();
 }
 
 void
@@ -161,8 +125,8 @@ Visualizer::publish_visualization_offset()
   viz_transform.header.frame_id = "world";
   viz_transform.child_frame_id  = "visualization_offset";
 
-  viz_transform.transform.translation.x = 0;
-  viz_transform.transform.translation.y = 0;
+  viz_transform.transform.translation.x = offset.x;
+  viz_transform.transform.translation.y = offset.y;
   viz_transform.transform.translation.z = 0;
 
   tf2::Quaternion q;
@@ -172,23 +136,7 @@ Visualizer::publish_visualization_offset()
   viz_transform.transform.rotation.z = q.z();
   viz_transform.transform.rotation.w = q.w();
 
-  geometry_msgs::msg::TransformStamped ego_viz_transform;
-
-  ego_viz_transform.header.frame_id = "visualization_offset";
-  ego_viz_transform.child_frame_id  = "ego_follow_visualization";
-
-  ego_viz_transform.transform.translation.x = latest_state->x - offset.x;
-  ego_viz_transform.transform.translation.y = latest_state->y - offset.y;
-
-  tf2::Quaternion q2;
-  q2.setRPY( 0, 0, latest_state->yaw_angle );
-  ego_viz_transform.transform.rotation.x = q2.x();
-  ego_viz_transform.transform.rotation.y = q2.y();
-  ego_viz_transform.transform.rotation.z = q2.z();
-  ego_viz_transform.transform.rotation.w = q2.w();
-
   visualisation_transform_broadcaster->sendTransform( viz_transform );
-  visualisation_transform_broadcaster->sendTransform( ego_viz_transform );
 }
 
 } // namespace visualizer
