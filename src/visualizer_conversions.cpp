@@ -65,8 +65,8 @@ to_marker_array( const adore_ros2_msgs::msg::Map& local_map_msg, const Offset& o
   {
     for( const auto& lane : road.lanes )
     {
-      auto inner_marker  = primitives::create_line_marker( lane.inner_points, "inner", lane.id, 0.2, colors::pink, offset );
-      auto outer_marker  = primitives::create_line_marker( lane.outer_points, "outer", lane.id, 0.2, colors::pink, offset );
+      auto inner_marker  = primitives::create_line_marker( lane.inner_points, "inner", lane.id, 0.15, colors::white, offset );
+      auto outer_marker  = primitives::create_line_marker( lane.outer_points, "outer", lane.id, 0.15, colors::white, offset );
       auto center_marker = primitives::create_line_marker( lane.center_points, "center", lane.id, 0.1, colors::gray, offset );
       marker_array.markers.push_back( inner_marker );
       marker_array.markers.push_back( outer_marker );
@@ -138,23 +138,14 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
     double unit_vector_x = std::cos( heading );
     double unit_vector_y = std::sin( heading );
 
-    // Add rectangle marker for the participant
-    double participant_length = 4.0;
-    double participant_width  = 1.8;
-    double participant_height = 1.0;
-    if( participant.participant_data.shape.dimensions.size() >= 3 )
-    {
-      participant_length = participant.participant_data.shape.dimensions[0];
-      participant_width  = participant.participant_data.shape.dimensions[1];
-      participant_height = participant.participant_data.shape.dimensions[2];
-    }
+    double participant_length = participant.participant_data.physical_parameters.body_length;
+    double participant_width  = participant.participant_data.physical_parameters.body_width;
+    double participant_height = participant.participant_data.physical_parameters.body_height;
 
     auto participant_color = participant.participant_data.goal_point.x < 0.01 ? colors::red : colors::purple;
 
-
-    participant_color[4]      = 0.3;
     auto rectangle_marker     = primitives::create_rectangle_marker( state.x, state.y,
-                                                                     0.1,                                      // Z position for height
+                                                                     0.01,                                     // Z position for height
                                                                      participant_length,                       // Length
                                                                      participant_width,                        // Width
                                                                      participant_height,                       // Height (example)

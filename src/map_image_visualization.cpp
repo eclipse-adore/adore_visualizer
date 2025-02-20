@@ -158,8 +158,8 @@ generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic 
                       bool networking_disabled, TileCache &tile_cache )
 {
   double magenta_correction_factor = 0.2; // the images we get are too magenta.
-  double tile_size                 = 100; // Generate new image if the car leaves this range
-  double map_size                  = 100; // Visible size
+  double tile_size                 = 10;  // Generate new image if the car leaves this range
+  double map_size                  = 50;  // Visible size
   double pixels_per_meter          = 5;
   int    image_pixels              = ( tile_size + map_size ) * pixels_per_meter;
 

@@ -26,6 +26,7 @@ using Color = std::array<float, 4>;
 namespace colors
 {
 // Define the Tableau 10 color palette with RGBA
+constexpr Color white  = { 1.0f, 1.0f, 1.0f, 1.0f };       // #FFFFFF
 constexpr Color blue   = { 0.121f, 0.467f, 0.706f, 1.0f }; // #1F77B4
 constexpr Color orange = { 1.0f, 0.498f, 0.054f, 1.0f };   // #FF7F0E
 constexpr Color green  = { 0.173f, 0.627f, 0.173f, 1.0f }; // #2CA02C

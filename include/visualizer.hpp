@@ -62,6 +62,7 @@ private:
   Offset                                       offset;
   std::string                                  maps_folder;
   TileCache                                    tile_cache;
+  std::vector<std::string>                     whitelist;
 
   // Dynamic Subscription & Publisher Updates
   template<typename MsgT>
@@ -93,6 +94,13 @@ Visualizer::update_dynamic_subscriptions( const std::string& expected_type )
   {
     const std::string&              topic_name = topic_pair.first;
     const std::vector<std::string>& types      = topic_pair.second;
+
+    // Ensure the topic name contains at least one of the allowed namespace prefixes
+    bool whitelisted = std::any_of( whitelist.begin(), whitelist.end(),
+                                    [&topic_name]( const std::string& ns ) { return topic_name.find( ns ) != std::string::npos; } );
+
+    if( !whitelisted )
+      continue;
 
     // Check whether this topic advertises our expected type.
     if( std::find( types.begin(), types.end(), expected_type ) != types.end() )

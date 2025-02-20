@@ -26,6 +26,11 @@ Visualizer::Visualizer() :
 {
   declare_parameter( "asset folder", "" );
   get_parameter( "asset folder", maps_folder );
+
+  declare_parameter( "whitelist", whitelist );
+  get_parameter( "whitelist", whitelist );
+  std::cerr << "Whitelist: " << whitelist.size() << std::endl;
+
   create_publishers();
   create_subscribers();
 }
@@ -71,10 +76,6 @@ Visualizer::timer_callback()
     if( marker_publishers.find( name ) != marker_publishers.end() )
     {
       marker_publishers[name]->publish( marker );
-    }
-    else
-    {
-      RCLCPP_ERROR( get_logger(), "No publisher found for %s", name.c_str() );
     }
   }
 
