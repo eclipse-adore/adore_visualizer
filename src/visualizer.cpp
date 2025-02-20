@@ -66,7 +66,6 @@ Visualizer::create_subscribers()
 void
 Visualizer::timer_callback()
 {
-
   for( const auto& [name, marker] : markers_to_publish )
   {
     if( marker_publishers.find( name ) != marker_publishers.end() )
@@ -78,12 +77,15 @@ Visualizer::timer_callback()
       RCLCPP_ERROR( get_logger(), "No publisher found for %s", name.c_str() );
     }
   }
+
   update_all_dynamic_subscriptions();
 
   if( !latest_state )
     return;
 
-  auto cloud            = map_image::generate_pointcloud2( offset, latest_state.value(), maps_folder, false );
+  // Generate or retrieve cached PointCloud2
+  sensor_msgs::msg::PointCloud2 cloud = map_image::generate_pointcloud2( offset, *latest_state, maps_folder, false, tile_cache );
+
   cloud.header.frame_id = "visualization_offset";
   map_cloud_publisher->publish( cloud );
 }

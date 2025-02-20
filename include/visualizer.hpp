@@ -34,6 +34,7 @@ namespace adore
 namespace visualizer
 {
 
+
 class Visualizer : public rclcpp::Node
 {
 private:
@@ -60,6 +61,7 @@ private:
   std::optional<dynamics::VehicleStateDynamic> latest_state;
   Offset                                       offset;
   std::string                                  maps_folder;
+  TileCache                                    tile_cache;
 
   // Dynamic Subscription & Publisher Updates
   template<typename MsgT>
