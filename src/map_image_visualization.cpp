@@ -234,7 +234,7 @@ generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic 
       // Convert image pixel to real-world coordinates
       *iter_x = map_origin_x + col / pixels_per_meter;
       *iter_y = map_origin_y - row / pixels_per_meter;
-      *iter_z = 0.0; // Flat ground
+      *iter_z = -0.1; // Flat ground
 
       // Encode RGB color in a single 32-bit field
       uint32_t rgb = ( static_cast<uint32_t>( r ) << 16 ) | ( static_cast<uint32_t>( g ) << 8 ) | static_cast<uint32_t>( b );

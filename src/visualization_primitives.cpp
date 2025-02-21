@@ -117,7 +117,7 @@ create_finish_line_marker( double x, double y, double square_size, const Offset&
       // Set position for each square in the grid
       marker.pose.position.x    = offset_x + col * square_size;
       marker.pose.position.y    = offset_y + row * square_size;
-      marker.pose.position.z    = 0.0;
+      marker.pose.position.z    = 0.3;
       marker.pose.orientation.w = 1.0; // No rotation
 
       // Set the scale (size of each square)
