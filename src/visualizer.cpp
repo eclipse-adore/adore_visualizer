@@ -85,10 +85,14 @@ Visualizer::timer_callback()
     return;
 
   // Generate or retrieve cached PointCloud2
-  sensor_msgs::msg::PointCloud2 cloud = map_image::generate_pointcloud2( offset, *latest_state, maps_folder, false, tile_cache );
+  auto index_and_tile = map_image::generate_pointcloud2( offset, *latest_state, maps_folder, false, tile_cache );
 
-  cloud.header.frame_id = "visualization_offset";
-  map_cloud_publisher->publish( cloud );
+  if( latest_tile_index != index_and_tile.first && map_cloud_publisher->get_subscription_count() > 0
+      && index_and_tile.second.data.size() > 0 )
+  {
+    latest_tile_index = index_and_tile.first;
+    map_cloud_publisher->publish( index_and_tile.second );
+  }
 }
 
 void

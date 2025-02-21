@@ -153,13 +153,13 @@ generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynam
   return occupancy_grid_msg;
 }
 
-sensor_msgs::msg::PointCloud2
+std::pair<TileKey, sensor_msgs::msg::PointCloud2>
 generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic &vehicle_state, const std::string &map_storage_path,
                       bool networking_disabled, TileCache &tile_cache )
 {
   double magenta_correction_factor = 0.2; // the images we get are too magenta.
-  double tile_size                 = 10;  // Generate new image if the car leaves this range
-  double map_size                  = 50;  // Visible size
+  double tile_size                 = 100; // Generate new image if the car leaves this range
+  double map_size                  = 100; // Visible size
   double pixels_per_meter          = 5;
   int    image_pixels              = ( tile_size + map_size ) * pixels_per_meter;
 
@@ -168,13 +168,13 @@ generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic 
   int map_tile_x = std::floor( vehicle_state.x / tile_size );
   int map_tile_y = std::floor( vehicle_state.y / tile_size );
 
-  std::pair<int, int> tile_index = { map_tile_x, map_tile_y };
+  TileKey tile_index = { map_tile_x, map_tile_y };
 
   // Check if tile exists in cache
   auto it = tile_cache.find( tile_index );
   if( it != tile_cache.end() )
   {
-    return it->second; // Return cached PointCloud2
+    return { tile_index, it->second }; // Return cached PointCloud2
   }
   // Prepare the PointCloud2 message
   sensor_msgs::msg::PointCloud2 cloud_msg;
@@ -188,7 +188,7 @@ generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic 
 
   if( !map_image )
   {
-    return cloud_msg; // Return empty if no image is available
+    return { tile_index, cloud_msg }; // Return empty if no image is available
   }
   cloud_msg.width    = map_image.value().cols;
   cloud_msg.height   = map_image.value().rows;
@@ -234,7 +234,7 @@ generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic 
       // Convert image pixel to real-world coordinates
       *iter_x = map_origin_x + col / pixels_per_meter;
       *iter_y = map_origin_y - row / pixels_per_meter;
-      *iter_z = -0.8; // Flat ground
+      *iter_z = 0.0; // Flat ground
 
       // Encode RGB color in a single 32-bit field
       uint32_t rgb = ( static_cast<uint32_t>( r ) << 16 ) | ( static_cast<uint32_t>( g ) << 8 ) | static_cast<uint32_t>( b );
@@ -249,7 +249,7 @@ generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic 
 
   tile_cache[tile_index] = cloud_msg; // Cache the PointCloud2 for future use
 
-  return cloud_msg;
+  return { tile_index, cloud_msg };
 }
 
 

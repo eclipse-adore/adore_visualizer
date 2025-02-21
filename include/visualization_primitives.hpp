@@ -44,6 +44,9 @@ namespace primitives
 Marker create_rectangle_marker( double x, double y, double z, double length, double width, double height, double heading,
                                 const std::string& ns, int id, const Color& color, const Offset& offset );
 
+Marker create_3d_object_marker( double x, double y, double z, double scale, double heading, const std::string& ns, int id,
+                                const Color& color, const std::string& file_name, const Offset& offset );
+
 // Helper to create a sphere marker
 Marker create_sphere_marker( double x, double y, double z, double scale, const std::string& ns, int id, const Color& color,
                              const Offset& offset );

@@ -36,17 +36,18 @@ namespace adore
 {
 namespace visualizer
 {
+using TileKey = std::pair<int, int>;
 
 struct TileHash
 {
   std::size_t
-  operator()( const std::pair<int, int> &tile ) const
+  operator()( const TileKey &tile ) const
   {
     return std::hash<int>()( tile.first ) ^ ( std::hash<int>()( tile.second ) << 1 );
   }
 };
 
-using TileCache = std::unordered_map<std::pair<int, int>, sensor_msgs::msg::PointCloud2, TileHash>;
+using TileCache = std::unordered_map<TileKey, sensor_msgs::msg::PointCloud2, TileHash>;
 
 namespace map_image
 {
@@ -59,8 +60,10 @@ std::optional<cv::Mat> fetch_map_image( int map_tile_x, int map_tile_y, double t
 nav_msgs::msg::OccupancyGrid generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynamic &vehicle_odometry,
                                                       const std::string &map_storage_path, bool networking_disabled );
 
-sensor_msgs::msg::PointCloud2 generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic &vehicle_state,
-                                                    const std::string &map_storage_path, bool networking_disabled, TileCache &tile_cache );
+std::pair<TileKey, sensor_msgs::msg::PointCloud2> generate_pointcloud2( const Offset                        &offset,
+                                                                        const dynamics::VehicleStateDynamic &vehicle_state,
+                                                                        const std::string &map_storage_path, bool networking_disabled,
+                                                                        TileCache &tile_cache );
 
 } // namespace map_image
 } // namespace visualizer
