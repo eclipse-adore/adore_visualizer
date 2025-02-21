@@ -255,11 +255,14 @@ to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Off
 {
   MarkerArray marker_array;
 
-  auto ego_vehicle_marker = primitives::create_3d_object_marker( msg.x, msg.y,
+  auto ego_vehicle_marker = primitives::create_3d_object_marker( 0, 0,
                                                                  0.0, // Z height
                                                                  1,   // scale
-                                                                 msg.yaw_angle, "ego_vehicle", 0, colors::blue, "low_poly_ngc_model.dae",
-                                                                 offset ); // Create a rectangle marker for the ego vehicle
+                                                                 0.0, "ego_vehicle", 0, colors::blue, "low_poly_ngc_model.dae",
+                                                                 { 0.0, 0.0 } ); // Create a rectangle marker for the ego vehicle
+
+  ego_vehicle_marker.frame_locked    = true;
+  ego_vehicle_marker.header.frame_id = "ego_vehicle";
 
   ego_vehicle_marker.mesh_use_embedded_materials = true;
   marker_array.markers.push_back( ego_vehicle_marker );
