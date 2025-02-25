@@ -87,8 +87,8 @@ Visualizer::timer_callback()
   // Generate or retrieve cached PointCloud2
   auto index_and_tile = map_image::generate_pointcloud2( offset, *latest_state, maps_folder, false, tile_cache );
 
-  if( latest_tile_index != index_and_tile.first && map_cloud_publisher->get_subscription_count() > 0
-      && index_and_tile.second.data.size() > 0 )
+  // if( latest_tile_index != index_and_tile.first && map_cloud_publisher->get_subscription_count() > 0
+      // && index_and_tile.second.data.size() > 0 )
   {
     latest_tile_index = index_and_tile.first;
     map_cloud_publisher->publish( index_and_tile.second );

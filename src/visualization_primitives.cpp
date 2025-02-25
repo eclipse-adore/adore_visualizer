@@ -163,7 +163,7 @@ create_3d_object_marker( double x, double y, double z, double scale, double head
   // Set the position
   marker.pose.position.x = x - offset.x;
   marker.pose.position.y = y - offset.y;
-  marker.pose.position.z = z;
+  marker.pose.position.z = 0;
 
   // Set the orientation
   tf2::Quaternion q;
