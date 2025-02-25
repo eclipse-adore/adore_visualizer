@@ -28,20 +28,43 @@
 #include "visualization_primitives.hpp"
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 
 namespace adore
 {
 namespace visualizer
 {
+using TileKey = std::pair<int, int>;
+
+struct TileHash
+{
+  std::size_t
+  operator()( const TileKey &tile ) const
+  {
+    return std::hash<int>()( tile.first ) ^ ( std::hash<int>()( tile.second ) << 1 );
+  }
+};
+
+using TileCache = std::unordered_map<TileKey, sensor_msgs::msg::PointCloud2, TileHash>;
+
 namespace map_image
 {
+
+
 std::optional<cv::Mat> fetch_map_image( int map_tile_x, int map_tile_y, double tile_size, double map_size, int image_resolution,
                                         const std::string &map_storage_path, bool networking_disabled );
 
 // Main function that converts a map image to an occupancy grid
 nav_msgs::msg::OccupancyGrid generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynamic &vehicle_odometry,
                                                       const std::string &map_storage_path, bool networking_disabled );
+
+std::pair<TileKey, sensor_msgs::msg::PointCloud2> generate_pointcloud2( const Offset                        &offset,
+                                                                        const dynamics::VehicleStateDynamic &vehicle_state,
+                                                                        const std::string &map_storage_path, bool networking_disabled,
+                                                                        TileCache &tile_cache );
+
 } // namespace map_image
 } // namespace visualizer
 } // namespace adore

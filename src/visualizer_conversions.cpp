@@ -13,6 +13,9 @@
  ********************************************************************************/
 #include "visualizer_conversions.hpp"
 
+#include "color_palette.hpp"
+#include "visualization_primitives.hpp"
+
 namespace adore
 {
 namespace visualizer
@@ -21,10 +24,9 @@ namespace conversions
 {
 // Conversion function for time-based odometry buffer to a marker array using the templated line drawing primitive
 MarkerArray
-state_buffer_to_markers( const StateBuffer& state_buffer, const Offset& offset )
+to_marker_array( const StateBuffer& state_buffer, const Offset& offset )
 {
   MarkerArray marker_array;
-
   const auto& buffer = state_buffer.get();
 
   if( buffer.size() < 2 )
@@ -32,26 +34,22 @@ state_buffer_to_markers( const StateBuffer& state_buffer, const Offset& offset )
     return marker_array; // Not enough points to create a line
   }
 
-  // Iterate over the buffer to create lines between consecutive points
-  for( size_t i = 1; i < buffer.size(); ++i )
-  {
-    Marker line_marker = primitives::create_line_marker( buffer[i - 1], buffer[i], "driven_path", i, 0.4, colors::blue, offset );
+  Marker line_marker = primitives::create_flat_line_marker( buffer, "driven_path", 1, 1.8, colors::soft_gray, offset );
 
-    marker_array.markers.push_back( line_marker );
-  }
 
   return marker_array;
 }
 
 MarkerArray
-safety_corridor_to_markers( const adore_ros2_msgs::msg::SafetyCorridor& safety_corridor, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::SafetyCorridor& safety_corridor, const Offset& offset )
 {
   MarkerArray marker_array;
 
-  auto line_marker_left = primitives::create_line_marker( safety_corridor.left_border, "safety_left_border", 0, 0.6, colors::red, offset );
+  auto line_marker_left = primitives::create_line_marker( safety_corridor.left_border, "safety_left_border", 0, 0.6, colors::soft_red,
+                                                          offset );
   marker_array.markers.push_back( line_marker_left );
 
-  auto line_marker_right = primitives::create_line_marker( safety_corridor.right_border, "safety_right_border", 0, 0.6, colors::red,
+  auto line_marker_right = primitives::create_line_marker( safety_corridor.right_border, "safety_right_border", 0, 0.6, colors::soft_red,
                                                            offset );
   marker_array.markers.push_back( line_marker_right );
 
@@ -59,24 +57,7 @@ safety_corridor_to_markers( const adore_ros2_msgs::msg::SafetyCorridor& safety_c
 }
 
 MarkerArray
-traffic_prediction_to_markers( const adore_ros2_msgs::msg::TrafficPrediction& traffic_prediction, const Offset& offset )
-{
-  MarkerArray marker_array;
-
-
-  for( const auto& vehicle : traffic_prediction.traffic_prediction )
-  {
-
-    auto line_marker = primitives::create_line_marker( vehicle.trajectory_prediction.states, "traffic_prediction", 0, 0.6, colors::green,
-                                                       offset );
-    marker_array.markers.push_back( line_marker );
-  }
-
-  return marker_array;
-}
-
-MarkerArray
-map_to_marker_array( const adore_ros2_msgs::msg::Map& local_map_msg, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::Map& local_map_msg, const Offset& offset )
 {
   MarkerArray marker_array;
 
@@ -84,8 +65,8 @@ map_to_marker_array( const adore_ros2_msgs::msg::Map& local_map_msg, const Offse
   {
     for( const auto& lane : road.lanes )
     {
-      auto inner_marker  = primitives::create_line_marker( lane.inner_points, "inner", lane.id, 0.2, colors::pink, offset );
-      auto outer_marker  = primitives::create_line_marker( lane.outer_points, "outer", lane.id, 0.2, colors::pink, offset );
+      auto inner_marker  = primitives::create_line_marker( lane.inner_points, "inner", lane.id, 0.15, colors::white, offset );
+      auto outer_marker  = primitives::create_line_marker( lane.outer_points, "outer", lane.id, 0.15, colors::white, offset );
       auto center_marker = primitives::create_line_marker( lane.center_points, "center", lane.id, 0.1, colors::gray, offset );
       marker_array.markers.push_back( inner_marker );
       marker_array.markers.push_back( outer_marker );
@@ -98,7 +79,7 @@ map_to_marker_array( const adore_ros2_msgs::msg::Map& local_map_msg, const Offse
 }
 
 MarkerArray
-route_to_marker_array( const adore_ros2_msgs::msg::Route& route, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::Route& route, const Offset& offset )
 {
 
   MarkerArray marker_array;
@@ -110,7 +91,7 @@ route_to_marker_array( const adore_ros2_msgs::msg::Route& route, const Offset& o
 }
 
 MarkerArray
-goal_to_marker_array( const adore_ros2_msgs::msg::GoalPoint& goal, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::GoalPoint& goal, const Offset& offset )
 {
   MarkerArray marker_array;
 
@@ -124,11 +105,9 @@ goal_to_marker_array( const adore_ros2_msgs::msg::GoalPoint& goal, const Offset&
   // Create the goal text marker
   double      text_size  = 1.0; // Size of the text
   std::string text       = "Goal is here";
-  Color       text_color = colors::cyan; // Assuming you have a colors::blue defined
+  Color       text_color = colors::cyan;
   std::string ns         = "goal_text";
 
-  // Position the text next to the finish line marker
-  // Calculate the x and y positions for the text
   double finish_line_width = grid_cols * square_size;
   double text_spacing      = 0.5; // Additional spacing between the finish line and the text
 
@@ -146,40 +125,35 @@ goal_to_marker_array( const adore_ros2_msgs::msg::GoalPoint& goal, const Offset&
 }
 
 MarkerArray
-traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_set, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_set, const Offset& offset )
 {
   MarkerArray marker_array;
 
   for( const auto& participant : participant_set.data )
   {
     const auto& state   = participant.participant_data.motion_state;
-    double      heading = state.yaw_angle; // + M_PI / 4;
+    double      heading = state.yaw_angle;
 
     // Compute unit vector for heading
-    double unit_vector_x = std::cos( heading ) + std::sin( heading );
-    double unit_vector_y = -std::sin( heading ) + std::cos( heading );
+    double unit_vector_x = std::cos( heading );
+    double unit_vector_y = std::sin( heading );
 
-    // Add rectangle marker for the participant
-    double participant_length = 1.0;
-    double participant_width  = 1.0;
-    double participant_height = 1.0;
-    if( participant.participant_data.shape.dimensions.size() >= 3 )
-    {
-      participant_length = participant.participant_data.shape.dimensions[0];
-      participant_width  = participant.participant_data.shape.dimensions[1];
-      participant_height = participant.participant_data.shape.dimensions[2];
-    }
+    double participant_length = participant.participant_data.physical_parameters.body_length;
+    double participant_width  = participant.participant_data.physical_parameters.body_width;
+    double participant_height = participant.participant_data.physical_parameters.body_height;
+
+    auto participant_color = participant.participant_data.goal_point.x < 0.01 ? colors::red : colors::purple;
 
     auto rectangle_marker     = primitives::create_rectangle_marker( state.x, state.y,
-                                                                     0.2,                                      // Z position for height
+                                                                     0.01,                                     // Z position for height
                                                                      participant_length,                       // Length
                                                                      participant_width,                        // Width
                                                                      participant_height,                       // Height (example)
                                                                      heading,                                  // Orientation
                                                                      "traffic_participant",                    // Namespace
                                                                      participant.participant_data.tracking_id, // ID
-                                                                     colors::red, offset );
-    rectangle_marker.lifetime = rclcpp::Duration::from_seconds( 0.2 ); // Add lifetime
+                                                                     participant_color, offset );
+    rectangle_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
     marker_array.markers.push_back( rectangle_marker );
 
     // Add velocity line marker
@@ -188,18 +162,17 @@ traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantS
     start.y = state.y;
 
     geometry_msgs::msg::Point end;
-    end.x = start.x + state.vx;
-    end.y = start.y + state.vy;
+    end.x = start.x + unit_vector_x * state.vx;
+    end.y = start.y + unit_vector_y * state.vx;
 
-    static const int VEL_ID_OFFSET = 1000; // for separate id for velocity marker
+    static const int VEL_ID_OFFSET = 100; // for separate id for velocity marker
 
     auto velocity_marker     = primitives::create_line_marker( start, end, "participant_velocity",
                                                                participant.participant_data.tracking_id + VEL_ID_OFFSET,
-                                                               0.1,                   // Line width
-                                                               colors::orange, offset // Light blue color with 50% opacity
-        );
+                                                               0.1, // Line width
+                                                               colors::orange, offset );
     velocity_marker.type     = velocity_marker.ARROW;
-    velocity_marker.lifetime = rclcpp::Duration::from_seconds( 0.2 ); // Add lifetime
+    velocity_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
     marker_array.markers.push_back( velocity_marker );
 
     // Add heading line marker
@@ -207,53 +180,44 @@ traffic_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantS
     heading_end.x = start.x + unit_vector_x;
     heading_end.y = start.y + unit_vector_y;
 
-    static const int HEADING_ID_OFFSET = 1000000; // for separate id for heading marker
+    static const int HEADING_ID_OFFSET = 10000; // for separate id for heading marker
 
-    auto heading_marker     = primitives::create_line_marker( start, heading_end, "participant_heading",
-                                                              participant.participant_data.tracking_id + HEADING_ID_OFFSET,
-                                                              0.2, // Line width
-                                                              colors::gray, offset );
-    heading_marker.lifetime = rclcpp::Duration::from_seconds( 0.2 ); // Add lifetime
+    auto heading_marker                   = primitives::create_line_marker( start, heading_end, "participant_heading",
+                                                                            participant.participant_data.tracking_id + HEADING_ID_OFFSET,
+                                                                            0.2, // Line width
+                                                                            colors::gray, offset );
+    heading_marker.lifetime               = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
+    static const int TRAJECTORY_ID_OFFSET = 1000000;
+    if( participant.participant_data.predicted_trajectory.states.size() > 0 )
+    {
+      // Create the line marker for the trajectory
+      auto line_marker = primitives::create_flat_line_marker( participant.participant_data.predicted_trajectory.states, "decision",
+                                                              participant.participant_data.tracking_id + TRAJECTORY_ID_OFFSET, 1.8,
+                                                              participant_color, offset );
+
+      line_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 );
+      marker_array.markers.push_back( line_marker );
+    }
     marker_array.markers.push_back( heading_marker );
   }
-
-  return marker_array;
-}
-
-MarkerArray
-ignored_participants_to_markers( const adore_ros2_msgs::msg::TrafficParticipantSet& ignored_participant_set, const Offset& offset )
-{
-  MarkerArray marker_array;
-
-  for( const auto& ignored : ignored_participant_set.data )
+  auto closed_border = participant_set.validity_area.points;
+  if( closed_border.size() > 0 )
   {
-    const auto& state   = ignored.participant_data.motion_state;
-    double      heading = state.yaw_angle;
-
-    // Add rectangle marker for the ignored participant
-    auto rectangle_marker     = primitives::create_rectangle_marker( state.x, state.y,
-                                                                     0.2,                                          // Z position for height
-                                                                     ignored.participant_data.shape.dimensions[0], // Length
-                                                                     ignored.participant_data.shape.dimensions[1], // Width
-                                                                     ignored.participant_data.shape.dimensions[2], // Height
-                                                                     heading,                                      // Orientation
-                                                                     "traffic_participant",                        // Namespace
-                                                                     ignored.participant_data.tracking_id,         // ID
-                                                                     colors::gray, offset );
-    rectangle_marker.lifetime = rclcpp::Duration::from_seconds( 0.2 ); // Add lifetime
-    marker_array.markers.push_back( rectangle_marker );
+    closed_border.push_back( closed_border.front() );
+    auto boundary_marker = primitives::create_line_marker( closed_border, "boundary", 999, 0.2, colors::soft_red, offset );
+    marker_array.markers.push_back( boundary_marker );
   }
-
   return marker_array;
 }
 
 MarkerArray
-trajectory_to_markers( const adore_ros2_msgs::msg::Trajectory& trajectory, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory, const Offset& offset )
 {
   MarkerArray marker_array;
 
   // Create the line marker for the trajectory
-  auto line_marker = primitives::create_line_marker( trajectory.states, "decision", trajectory.request_id, 0.3, colors::green, offset );
+  auto line_marker = primitives::create_flat_line_marker( trajectory.states, "decision", trajectory.request_id, 1.8, colors::soft_blue,
+                                                          offset );
   marker_array.markers.push_back( line_marker );
 
   // Determine the position for the label
@@ -262,7 +226,7 @@ trajectory_to_markers( const adore_ros2_msgs::msg::Trajectory& trajectory, const
   {
     const auto& first_state = trajectory.states[0];
     double      text_size   = 0.5;
-    Color       text_color  = colors::green;
+    Color       text_color  = colors::blue;
     std::string ns          = "trajectory_label";
 
     double forward_distance = 2.0; // 2 meters forward
@@ -287,27 +251,26 @@ trajectory_to_markers( const adore_ros2_msgs::msg::Trajectory& trajectory, const
 
 // Conversion function for odometry to markers
 MarkerArray
-state_to_markers( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Offset& offset )
 {
   MarkerArray marker_array;
 
-  // Create a rectangle marker for the ego vehicle
-  auto ego_vehicle_marker                        = primitives::create_rectangle_marker( msg.x, msg.y,
-                                                                                        0.0, // Z height
-                                                                                        4.5, // Length
-                                                                                        2.0, // Width
-                                                                                        1.5, // Height
-                                                                                        msg.yaw_angle, "ego_vehicle", 0, colors::blue,
-                                                                                        offset // Red color with 80% opacity
-                         );
+  auto ego_vehicle_marker = primitives::create_3d_object_marker( 0, 0,
+                                                                 0.0, // Z height
+                                                                 1,   // scale
+                                                                 0.0, "ego_vehicle", 0, colors::blue, "low_poly_ngc_model.dae",
+                                                                 { 0.0, 0.0 } ); // Create a rectangle marker for the ego vehicle
+
+  ego_vehicle_marker.frame_locked    = true;
+  ego_vehicle_marker.header.frame_id = "ego_vehicle";
+
   ego_vehicle_marker.mesh_use_embedded_materials = true;
   marker_array.markers.push_back( ego_vehicle_marker );
-
   return marker_array;
 }
 
 MarkerArray
-traffic_signals_to_markers( const adore_ros2_msgs::msg::TrafficSignals& traffic_signals, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::TrafficSignals& traffic_signals, const Offset& offset )
 {
   MarkerArray marker_array;
 
@@ -351,6 +314,71 @@ traffic_signals_to_markers( const adore_ros2_msgs::msg::TrafficSignals& traffic_
   return marker_array;
 }
 
+// Conversion function for Waypoints message (just showing the points)
+MarkerArray
+to_marker_array( const adore_ros2_msgs::msg::Waypoints& waypoints_msg, const Offset& offset )
+{
+  MarkerArray marker_array;
+
+  // Iterate over each waypoint and create a sphere marker
+  for( size_t i = 0; i < waypoints_msg.waypoints.size(); ++i )
+  {
+    const auto& point = waypoints_msg.waypoints[i];
+    // Create a sphere marker at the waypoint location (using a default scale, e.g., 0.2)
+    Marker sphere_marker = primitives::create_sphere_marker( point.x, point.y, point.z,
+                                                             0.3,         // Scale (radius)
+                                                             "waypoints", // Namespace
+                                                             i,           // ID
+                                                             colors::purple, offset );
+    marker_array.markers.push_back( sphere_marker );
+  }
+
+  return marker_array;
+}
+
+MarkerArray
+to_marker_array( const adore_ros2_msgs::msg::CautionZone& caution_zone, const Offset& offset )
+{
+  MarkerArray marker_array;
+
+  // Check if the polygon contains points
+  if( caution_zone.polygon.points.empty() )
+  {
+    return marker_array;
+  }
+
+  auto polygon_points = caution_zone.polygon.points;
+
+  // Ensure that the polygon is closed. If the first and last points are not identical, add the first point at the end.
+  if( polygon_points.front().x != polygon_points.back().x || polygon_points.front().y != polygon_points.back().y )
+  {
+    polygon_points.push_back( polygon_points.front() );
+  }
+
+  Marker line_marker = primitives::create_flat_line_marker( polygon_points, "caution_zone", 0, 0.5, colors::soft_orange, offset );
+  marker_array.markers.push_back( line_marker );
+
+  // Optionally, add a text marker for the label of the caution zone.
+  // Compute the centroid of the polygon to position the label.
+  double centroid_x = 0.0;
+  double centroid_y = 0.0;
+  for( const auto& pt : polygon_points )
+  {
+    centroid_x += pt.x;
+    centroid_y += pt.y;
+  }
+  size_t num_points  = polygon_points.size();
+  centroid_x        /= num_points;
+  centroid_y        /= num_points;
+
+  MarkerArray text_markers = primitives::create_text_marker( centroid_x, centroid_y, caution_zone.label,
+                                                             1.0,            // Text size
+                                                             colors::orange, // Text color
+                                                             caution_zone.label, offset );
+  marker_array.markers.insert( marker_array.markers.end(), text_markers.markers.begin(), text_markers.markers.end() );
+
+  return marker_array;
+}
 } // namespace conversions
 } // namespace visualizer
 } // namespace adore

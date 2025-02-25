@@ -25,7 +25,8 @@ using Color = std::array<float, 4>;
 
 namespace colors
 {
-// Define the Tableau 10 color palette with RGBA (Alpha = 1.0)
+// Define the Tableau 10 color palette with RGBA
+constexpr Color white  = { 1.0f, 1.0f, 1.0f, 1.0f };       // #FFFFFF
 constexpr Color blue   = { 0.121f, 0.467f, 0.706f, 1.0f }; // #1F77B4
 constexpr Color orange = { 1.0f, 0.498f, 0.054f, 1.0f };   // #FF7F0E
 constexpr Color green  = { 0.173f, 0.627f, 0.173f, 1.0f }; // #2CA02C
@@ -37,6 +38,19 @@ constexpr Color gray   = { 0.498f, 0.498f, 0.498f, 1.0f }; // #7F7F7F
 constexpr Color yellow = { 0.737f, 0.741f, 0.133f, 1.0f }; // #BCBD22
 constexpr Color cyan   = { 0.090f, 0.745f, 0.812f, 1.0f }; // #17BECF
 constexpr Color black  = { 0.0f, 0.0f, 0.0f, 1.0f };       // #000000
+
+// Define the Tableau 10 color palette with RGBA
+constexpr Color soft_blue   = { 0.121f, 0.467f, 0.706f, 0.7f }; // #1F77B4
+constexpr Color soft_orange = { 1.0f, 0.498f, 0.054f, 0.7f };   // #FF7F0E
+constexpr Color soft_green  = { 0.173f, 0.627f, 0.173f, 0.7f }; // #2CA02C
+constexpr Color soft_red    = { 0.839f, 0.153f, 0.157f, 0.7f }; // #D62728
+constexpr Color soft_purple = { 0.580f, 0.404f, 0.741f, 0.7f }; // #9467BD
+constexpr Color soft_brown  = { 0.549f, 0.337f, 0.294f, 0.7f }; // #8C564B
+constexpr Color soft_pink   = { 0.867f, 0.518f, 0.604f, 0.7f }; // #E377C2
+constexpr Color soft_gray   = { 0.498f, 0.498f, 0.498f, 0.7f }; // #7F7F7F
+constexpr Color soft_yellow = { 0.737f, 0.741f, 0.133f, 0.7f }; // #BCBD22
+constexpr Color soft_cyan   = { 0.090f, 0.745f, 0.812f, 0.7f }; // #17BECF
+constexpr Color soft_black  = { 0.0f, 0.0f, 0.0f, 0.7f };       // #000000
 
 } // namespace colors
 

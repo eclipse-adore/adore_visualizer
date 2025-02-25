@@ -13,6 +13,7 @@ find_package(OpenCV REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(adore_map_conversions REQUIRED)
 find_package(adore_dynamics_conversions REQUIRED)
+find_package(adore_math_conversions REQUIRED)
 
 # required for unit testing with gtest
 find_package(ament_cmake_gtest REQUIRED)

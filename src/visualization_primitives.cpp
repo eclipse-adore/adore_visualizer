@@ -117,7 +117,7 @@ create_finish_line_marker( double x, double y, double square_size, const Offset&
       // Set position for each square in the grid
       marker.pose.position.x    = offset_x + col * square_size;
       marker.pose.position.y    = offset_y + row * square_size;
-      marker.pose.position.z    = 0.0;
+      marker.pose.position.z    = 0.3;
       marker.pose.orientation.w = 1.0; // No rotation
 
       // Set the scale (size of each square)
@@ -147,6 +147,47 @@ create_finish_line_marker( double x, double y, double square_size, const Offset&
   }
 
   return marker_array;
+}
+
+Marker
+create_3d_object_marker( double x, double y, double z, double scale, double heading, const std::string& ns, int id, const Color& color,
+                         const std::string& file_name, const Offset& offset )
+{
+  Marker marker;
+  marker.header.frame_id = "visualization_offset";
+  marker.ns              = ns;
+  marker.id              = id;
+  marker.type            = Marker::MESH_RESOURCE;
+  marker.action          = Marker::ADD;
+
+  // Set the position
+  marker.pose.position.x = x - offset.x;
+  marker.pose.position.y = y - offset.y;
+  marker.pose.position.z = z;
+
+  // Set the orientation
+  tf2::Quaternion q;
+  q.setRPY( 0.0, 0.0, heading ); // Rotation around Z-axis (heading)
+  marker.pose.orientation.x = q.x();
+  marker.pose.orientation.y = q.y();
+  marker.pose.orientation.z = q.z();
+  marker.pose.orientation.w = q.w();
+
+  // Set the scale
+  marker.scale.x = scale;
+  marker.scale.y = scale;
+  marker.scale.z = scale;
+
+  // Set the color
+  marker.color.r = color[0];
+  marker.color.g = color[1];
+  marker.color.b = color[2];
+  marker.color.a = color[3];
+
+
+  marker.mesh_resource = "http://localhost:8080/assets/3d_models/" + file_name;
+
+  return marker;
 }
 
 MarkerArray

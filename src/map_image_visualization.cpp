@@ -91,10 +91,10 @@ generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynam
                          bool networking_disabled )
 {
 
-  double tile_size = 100; // generate new image if the car leaves this range
-  double map_size  = 400; // show is size
+  double tile_size = 50; // generate new image if the car leaves this range
+  double map_size  = 50; // show is size
 
-  double pixels_per_meter = 2;
+  double pixels_per_meter = 5;
   int    image_pixels     = ( tile_size + map_size ) * pixels_per_meter;
 
   // Prepare the occupancy grid message
@@ -152,6 +152,107 @@ generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynam
 
   return occupancy_grid_msg;
 }
+
+std::pair<TileKey, sensor_msgs::msg::PointCloud2>
+generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic &vehicle_state, const std::string &map_storage_path,
+                      bool networking_disabled, TileCache &tile_cache )
+{
+  double magenta_correction_factor = 0.2; // the images we get are too magenta.
+  double tile_size                 = 100; // Generate new image if the car leaves this range
+  double map_size                  = 100; // Visible size
+  double pixels_per_meter          = 5;
+  int    image_pixels              = ( tile_size + map_size ) * pixels_per_meter;
+
+
+  // Identify which map tile corresponds to the vehicle's current position
+  int map_tile_x = std::floor( vehicle_state.x / tile_size );
+  int map_tile_y = std::floor( vehicle_state.y / tile_size );
+
+  TileKey tile_index = { map_tile_x, map_tile_y };
+
+  // Check if tile exists in cache
+  auto it = tile_cache.find( tile_index );
+  if( it != tile_cache.end() )
+  {
+    return { tile_index, it->second }; // Return cached PointCloud2
+  }
+  // Prepare the PointCloud2 message
+  sensor_msgs::msg::PointCloud2 cloud_msg;
+
+  // Load the map image for the current tile
+  std::optional<cv::Mat> map_image = fetch_map_image( map_tile_x, map_tile_y, tile_size, map_size, image_pixels, map_storage_path,
+                                                      networking_disabled );
+
+  cloud_msg.header.frame_id = "visualization_offset";
+  cloud_msg.header.stamp    = rclcpp::Clock().now();
+
+  if( !map_image )
+  {
+    return { tile_index, cloud_msg }; // Return empty if no image is available
+  }
+  cloud_msg.width    = map_image.value().cols;
+  cloud_msg.height   = map_image.value().rows;
+  cloud_msg.is_dense = true;
+
+  // Define fields: x, y, z (position) and rgb (color)
+  sensor_msgs::PointCloud2Modifier modifier( cloud_msg );
+  modifier.setPointCloud2Fields( 4, "x", 1, sensor_msgs::msg::PointField::FLOAT32, "y", 1, sensor_msgs::msg::PointField::FLOAT32, "z", 1,
+                                 sensor_msgs::msg::PointField::FLOAT32, "rgb", 1, sensor_msgs::msg::PointField::FLOAT32 );
+
+  // Set the origin of the map
+  double map_origin_x = map_tile_x * tile_size - offset.x - map_size / 2;
+  double map_origin_y = map_tile_y * tile_size - offset.y + map_size / 2 + tile_size;
+
+  sensor_msgs::PointCloud2Iterator<float>   iter_x( cloud_msg, "x" );
+  sensor_msgs::PointCloud2Iterator<float>   iter_y( cloud_msg, "y" );
+  sensor_msgs::PointCloud2Iterator<float>   iter_z( cloud_msg, "z" );
+  sensor_msgs::PointCloud2Iterator<uint8_t> iter_r( cloud_msg, "rgb" );
+
+  // Compute average color balance to determine magenta shift
+  cv::Scalar mean_color = cv::mean( map_image.value() );
+  double     avg_r      = mean_color[2];
+  double     avg_g      = mean_color[1];
+  double     avg_b      = mean_color[0];
+
+  // Magenta correction based on imbalance
+  double magenta_offset = ( avg_r + avg_b ) - ( 2 * avg_g ); // Magenta dominance = (R + B) - 2G
+
+  for( int row = 0; row < map_image.value().rows; ++row )
+  {
+    for( int col = 0; col < map_image.value().cols; ++col )
+    {
+      cv::Vec3b color = map_image.value().at<cv::Vec3b>( row, col );
+      uchar     b     = color[0];
+      uchar     g     = color[1];
+      uchar     r     = color[2];
+
+      // Reduce magenta bias by adjusting red and blue
+      r = static_cast<uchar>( std::clamp( r - magenta_correction_factor * magenta_offset, 0.0, 255.0 ) );
+      b = static_cast<uchar>( std::clamp( b - magenta_correction_factor * magenta_offset, 0.0, 255.0 ) );
+      g = static_cast<uchar>( std::clamp( g + magenta_correction_factor * magenta_offset, 0.0, 255.0 ) );
+
+      // Convert image pixel to real-world coordinates
+      *iter_x = map_origin_x + col / pixels_per_meter;
+      *iter_y = map_origin_y - row / pixels_per_meter;
+      *iter_z = -0.1; // Flat ground
+
+      // Encode RGB color in a single 32-bit field
+      uint32_t rgb = ( static_cast<uint32_t>( r ) << 16 ) | ( static_cast<uint32_t>( g ) << 8 ) | static_cast<uint32_t>( b );
+      *reinterpret_cast<uint32_t *>( &( *iter_r ) ) = rgb;
+
+      ++iter_x;
+      ++iter_y;
+      ++iter_z;
+      ++iter_r;
+    }
+  }
+
+  tile_cache[tile_index] = cloud_msg; // Cache the PointCloud2 for future use
+
+  return { tile_index, cloud_msg };
+}
+
+
 } // namespace map_image
 } // namespace visualizer
 } // namespace adore

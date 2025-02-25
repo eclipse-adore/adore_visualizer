@@ -26,6 +26,7 @@
 #include "visualizer_conversions.hpp"
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 namespace adore
@@ -33,79 +34,106 @@ namespace adore
 namespace visualizer
 {
 
+
 class Visualizer : public rclcpp::Node
 {
 private:
 
-
-  rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr subscriber_traffic_participants;
-  rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr subscriber_ignored_participants;
-  rclcpp::Subscription<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr   subscriber_vehicle_state_dynamic;
-
-  rclcpp::Subscription<adore_ros2_msgs::msg::Trajectory>::SharedPtr        subscriber_decision;
-  rclcpp::Subscription<adore_ros2_msgs::msg::Trajectory>::SharedPtr        subscriber_trajectory;
-  rclcpp::Subscription<adore_ros2_msgs::msg::Trajectory>::SharedPtr        subscriber_controller_trajectory;
-  rclcpp::Subscription<adore_ros2_msgs::msg::SafetyCorridor>::SharedPtr    subscriber_safety_corridor;
-  rclcpp::Subscription<adore_ros2_msgs::msg::TrafficPrediction>::SharedPtr subscriber_traffic_prediction;
-  rclcpp::Subscription<adore_ros2_msgs::msg::Route>::SharedPtr             subscriber_route;
-  rclcpp::Subscription<adore_ros2_msgs::msg::Map>::SharedPtr               subscriber_local_map;
-  rclcpp::Subscription<adore_ros2_msgs::msg::GoalPoint>::SharedPtr         subscriber_goal;
-  rclcpp::Subscription<adore_ros2_msgs::msg::TrafficSignals>::SharedPtr    subscriber_traffic_signals;
-
-  rclcpp::TimerBase::SharedPtr main_timer;
-
+  // Timers & TF
+  rclcpp::TimerBase::SharedPtr                   main_timer;
   std::unique_ptr<tf2_ros::TransformBroadcaster> visualisation_transform_broadcaster;
 
-  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_publisher;
-
-  // Map to store publishers for MarkerArray for different topics
+  // Publishers
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr                                              map_cloud_publisher;
   std::unordered_map<std::string, rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr>      marker_publishers;
   std::unordered_map<std::string, rclcpp::Publisher<adore_ros2_msgs::msg::TrajectoryTranspose>::SharedPtr> trajectory_publishers;
 
-  // Map to store MarkerArrays corresponding to different topics
-  std::unordered_map<std::string, visualization_msgs::msg::MarkerArray> marker_array_map;
+  // Subscriptions
+  rclcpp::Subscription<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr subscriber_vehicle_state_dynamic;
+  std::unordered_map<std::string, rclcpp::SubscriptionBase::SharedPtr>       dynamic_subscriptions;
 
-  // callback functions
-  void traffic_participants_callback( const adore_ros2_msgs::msg::TrafficParticipantSet& msg );
-  void ignored_participants_callback( const adore_ros2_msgs::msg::TrafficParticipantSet& msg );
-  void vehicle_state_dynamic_callback( const adore_ros2_msgs::msg::VehicleStateDynamic& msg );
-  void decision_callback( const adore_ros2_msgs::msg::Trajectory& msg );
-  void trajectory_callback( const adore_ros2_msgs::msg::Trajectory& msg );
-  void controller_trajectory_callback( const adore_ros2_msgs::msg::Trajectory& msg );
-  void safety_corridor_callback( const adore_ros2_msgs::msg::SafetyCorridor& msg );
-  void traffic_prediction_callback( const adore_ros2_msgs::msg::TrafficPrediction& msg );
-  void map_callback( const adore_ros2_msgs::msg::Map& msg );
-  void route_callback( const adore_ros2_msgs::msg::Route& msg );
-  void goal_callback( const adore_ros2_msgs::msg::GoalPoint& msg );
-  void traffic_signals_callback( const adore_ros2_msgs::msg::TrafficSignals& msg );
-  void timer_callback();
-
-  StateBuffer state_buffer;
-  double      keep_odometry_time = 20; // seconds
-
-  std::optional<dynamics::VehicleStateDynamic> first_state;
-  std::optional<dynamics::VehicleStateDynamic> latest_state;
-  void                                         publish_visualization_offset();
-
-  Offset offset;
-
-  std::string maps_folder;
-
-  std::vector<std::string>                     marker_names;
+  // Marker Storage
   std::unordered_map<std::string, MarkerArray> markers_to_publish;
 
-  std::vector<std::string> visualizing_trajectory_names;
+  // State & Configuration
+  StateBuffer                                  state_buffer;
+  std::optional<dynamics::VehicleStateDynamic> first_state;
+  std::optional<dynamics::VehicleStateDynamic> latest_state;
+  Offset                                       offset;
+  std::string                                  maps_folder;
+  TileCache                                    tile_cache;
+  TileKey                                      latest_tile_index = { -1, -1 };
+  std::vector<std::string>                     whitelist;
+
+  // Dynamic Subscription & Publisher Updates
+  template<typename MsgT>
+  void update_dynamic_subscriptions( const std::string& expected_type );
+  void update_all_dynamic_subscriptions();
+
+  // Subscriber/Publisher Creation Functions
+  void create_subscribers();
+  void create_publishers();
+
+  // Callback Functions
+  void vehicle_state_dynamic_callback( const adore_ros2_msgs::msg::VehicleStateDynamic& msg );
+  void timer_callback();
+  void publish_visualization_offset();
 
 public:
 
   Visualizer();
-
-  // Function to create and store subscribers for various topics
-  void create_subscribers();
-
-  // Function to create publishers for various topics
-  void create_publishers();
 };
+
+template<typename MsgT>
+void
+Visualizer::update_dynamic_subscriptions( const std::string& expected_type )
+{
+  // get_topic_names_and_types() returns a map<string, vector<string>> of all topics and their types.
+  auto topic_names_and_types = get_topic_names_and_types();
+
+  for( const auto& topic_pair : topic_names_and_types )
+  {
+    const std::string&              topic_name = topic_pair.first;
+    const std::vector<std::string>& types      = topic_pair.second;
+
+    // Ensure the topic name contains at least one of the allowed namespace prefixes
+    bool whitelisted = std::any_of( whitelist.begin(), whitelist.end(),
+                                    [&topic_name]( const std::string& ns ) { return topic_name.find( ns ) != std::string::npos; } );
+
+    if( !whitelisted )
+      continue;
+
+    // Check whether this topic advertises our expected type.
+    if( std::find( types.begin(), types.end(), expected_type ) != types.end() )
+    {
+      // If we haven't already subscribed to this topic, do so.
+      if( dynamic_subscriptions.find( topic_name ) == dynamic_subscriptions.end() )
+      {
+        marker_publishers[topic_name] = create_publisher<visualization_msgs::msg::MarkerArray>( "visualize_" + topic_name, 10 );
+
+        // If this is a trajectory message type, create the extra trajectory publisher.
+        if constexpr( std::is_same_v<MsgT, adore_ros2_msgs::msg::Trajectory> )
+        {
+          trajectory_publishers[topic_name] = create_publisher<adore_ros2_msgs::msg::TrajectoryTranspose>( topic_name + "_transpose", 10 );
+        }
+
+        markers_to_publish[topic_name] = MarkerArray();
+        auto subscription              = create_subscription<MsgT>( topic_name, 1, [this, topic_name]( const MsgT& msg ) {
+          // Use the standard conversion function to generate a MarkerArray.
+          markers_to_publish[topic_name] = conversions::to_marker_array( msg, offset );
+
+          if constexpr( std::is_same_v<MsgT, adore_ros2_msgs::msg::Trajectory> )
+          {
+            trajectory_publishers[topic_name]->publish( dynamics::conversions::transpose( msg ) );
+          };
+        } );
+
+        dynamic_subscriptions[topic_name] = subscription;
+        RCLCPP_INFO( get_logger(), "Dynamically subscribed to topic: %s", topic_name.c_str() );
+      }
+    }
+  }
+}
 
 } // namespace visualizer
 } // namespace adore

@@ -44,6 +44,9 @@ namespace primitives
 Marker create_rectangle_marker( double x, double y, double z, double length, double width, double height, double heading,
                                 const std::string& ns, int id, const Color& color, const Offset& offset );
 
+Marker create_3d_object_marker( double x, double y, double z, double scale, double heading, const std::string& ns, int id,
+                                const Color& color, const std::string& file_name, const Offset& offset );
+
 // Helper to create a sphere marker
 Marker create_sphere_marker( double x, double y, double z, double scale, const std::string& ns, int id, const Color& color,
                              const Offset& offset );
@@ -118,6 +121,72 @@ create_line_marker( const IterablePoints& points, const std::string& ns, int id,
   marker.color.g = color[1];
   marker.color.b = color[2];
   marker.color.a = color[3];
+
+  return marker;
+}
+
+template<typename IterablePoints>
+Marker
+create_flat_line_marker( const IterablePoints& points, const std::string& ns, int id, double width, const Color& color,
+                         const Offset& offset )
+{
+  Marker marker;
+  marker.header.frame_id = "visualization_offset";
+  marker.ns              = ns;
+  marker.id              = id;
+  marker.type            = Marker::TRIANGLE_LIST; // Using triangles to form quads
+  marker.action          = Marker::ADD;
+
+  // Set the color
+  marker.color.r = color[0];
+  marker.color.g = color[1];
+  marker.color.b = color[2];
+  marker.color.a = color[3];
+
+  if( points.size() < 2 )
+  {
+    return marker; // Not enough points to form a line
+  }
+
+  // Iterate through points to create a quad between each pair
+  auto prev = points.begin();
+  for( auto next = std::next( prev ); next != points.end(); ++prev, ++next )
+  {
+    double dx     = next->x - prev->x;
+    double dy     = next->y - prev->y;
+    double length = std::sqrt( dx * dx + dy * dy );
+
+    if( length == 0 )
+      continue; // Avoid division by zero
+
+    // Compute perpendicular unit vector for width control
+    double ux = -( dy / length ) * ( width / 2.0 );
+    double uy = ( dx / length ) * ( width / 2.0 );
+
+    // Define the four corner points of the quad (flat rectangle)
+    geometry_msgs::msg::Point p1, p2, p3, p4;
+    p1.x = prev->x - ux - offset.x;
+    p1.y = prev->y - uy - offset.y;
+    p1.z = 0.0;
+    p2.x = prev->x + ux - offset.x;
+    p2.y = prev->y + uy - offset.y;
+    p2.z = 0.0;
+    p3.x = next->x - ux - offset.x;
+    p3.y = next->y - uy - offset.y;
+    p3.z = 0.0;
+    p4.x = next->x + ux - offset.x;
+    p4.y = next->y + uy - offset.y;
+    p4.z = 0.0;
+
+    // Define two triangles per quad
+    marker.points.push_back( p1 );
+    marker.points.push_back( p2 );
+    marker.points.push_back( p3 );
+
+    marker.points.push_back( p2 );
+    marker.points.push_back( p4 );
+    marker.points.push_back( p3 );
+  }
 
   return marker;
 }
