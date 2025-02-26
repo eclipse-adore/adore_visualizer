@@ -30,12 +30,20 @@ fetch_map_image( int map_tile_x, int map_tile_y, double tile_size, double map_si
                  const std::string &map_storage_path, bool networking_disabled )
 {
   // Try loading the image from the local file system
-  cv::Mat map_image = cv::imread( map_storage_path + "/" + std::to_string( map_tile_x ) + ":" + std::to_string( map_tile_y ) + ".jpg" );
+  std::string jpg_path = map_storage_path + "/" + std::to_string( map_tile_x ) + ":" + std::to_string( map_tile_y ) + ".jpg";
+  std::string png_path = map_storage_path + "/" + std::to_string( map_tile_x ) + ":" + std::to_string( map_tile_y ) + ".png";
 
+  cv::Mat map_image = cv::imread( png_path );
   if( !map_image.empty() )
   {
     return map_image;
   }
+  map_image = cv::imread( jpg_path );
+  if( !map_image.empty() )
+  {
+    return map_image;
+  }
+
 
   // If networking is disabled, we can't fetch the map from the server
   if( networking_disabled )
