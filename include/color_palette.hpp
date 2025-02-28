@@ -55,7 +55,7 @@ constexpr Color soft_black  = { 0.0f, 0.0f, 0.0f, 0.7f };       // #000000
 } // namespace colors
 
 // Function to convert HSV to RGB
-static Color
+inline static Color
 hsv_to_rgb( float h, float s, float v )
 {
   float r, g, b;

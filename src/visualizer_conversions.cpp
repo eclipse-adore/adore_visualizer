@@ -251,7 +251,7 @@ to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory, const Offse
 
 // Conversion function for odometry to markers
 MarkerArray
-to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Offset& offset )
+to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& /*msg*/, const Offset& /*offset*/ )
 {
   MarkerArray marker_array;
 
