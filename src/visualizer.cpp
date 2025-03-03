@@ -31,6 +31,9 @@ Visualizer::Visualizer() :
   get_parameter( "whitelist", whitelist );
   std::cerr << "Whitelist: " << whitelist.size() << std::endl;
 
+  declare_parameter( "map_image_api_key", "" );
+  get_parameter( "map_image_api_key", map_image_api_key );
+
   create_publishers();
   create_subscribers();
 }
@@ -85,7 +88,7 @@ Visualizer::timer_callback()
     return;
 
   // Generate or retrieve cached PointCloud2
-  auto index_and_tile = map_image::generate_pointcloud2( offset, *latest_state, maps_folder, false, tile_cache );
+  auto index_and_tile = map_image::generate_pointcloud2( offset, *latest_state, maps_folder, false, tile_cache, map_image_api_key );
 
   if( latest_tile_index != index_and_tile.first && map_cloud_publisher->get_subscription_count() > 0
       && index_and_tile.second.data.size() > 0 )
