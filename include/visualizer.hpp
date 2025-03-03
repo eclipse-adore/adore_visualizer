@@ -64,6 +64,7 @@ private:
   TileCache                                    tile_cache;
   TileKey                                      latest_tile_index = { -1, -1 };
   std::vector<std::string>                     whitelist;
+  std::string                                  map_image_api_key;
 
   // Dynamic Subscription & Publisher Updates
   template<typename MsgT>

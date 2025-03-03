@@ -52,18 +52,27 @@ using TileCache = std::unordered_map<TileKey, sensor_msgs::msg::PointCloud2, Til
 namespace map_image
 {
 
-
 std::optional<cv::Mat> fetch_map_image( int map_tile_x, int map_tile_y, double tile_size, double map_size, int image_resolution,
-                                        const std::string &map_storage_path, bool networking_disabled );
+                                        const std::string &map_storage_path, bool networking_disabled, const std::string &api_key );
+
+std::optional<cv::Mat> fetch_map_image_open( int map_tile_x, int map_tile_y, double tile_size, double map_size, int image_resolution,
+                                             const std::string &map_storage_path );
+
+std::optional<cv::Mat> fetch_map_image_closed( int map_tile_x, int map_tile_y, double tile_size, double map_size, int image_resolution,
+                                               const std::string &map_storage_path, const std::string &api_key );
+
+std::optional<cv::Mat> fetch_map_image_local( int map_tile_x, int map_tile_y, double tile_size, double map_size, int image_resolution,
+                                              const std::string &map_storage_path );
 
 // Main function that converts a map image to an occupancy grid
 nav_msgs::msg::OccupancyGrid generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynamic &vehicle_odometry,
-                                                      const std::string &map_storage_path, bool networking_disabled );
+                                                      const std::string &map_storage_path, bool networking_disabled,
+                                                      const std::string &api_key );
 
 std::pair<TileKey, sensor_msgs::msg::PointCloud2> generate_pointcloud2( const Offset                        &offset,
                                                                         const dynamics::VehicleStateDynamic &vehicle_state,
                                                                         const std::string &map_storage_path, bool networking_disabled,
-                                                                        TileCache &tile_cache );
+                                                                        TileCache &tile_cache, const std::string &api_key );
 
 } // namespace map_image
 } // namespace visualizer
