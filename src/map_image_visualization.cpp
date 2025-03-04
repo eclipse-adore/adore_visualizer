@@ -126,7 +126,7 @@ fetch_map_image_closed( int map_tile_x, int map_tile_y, double tile_size, double
   url_stream << "https://adore-ts_reader:" << api_key
              << "@ts.dlr.de/mumme-server/bs-gov/wms?service=WMS&version=1.1.0&request=GetMap&layers=bs-gov:dop-2020"
                 "&styles=&width="
-             << map_size << "&height=" << map_size << "&srs=EPSG:32632&format=image/jpeg&bbox=";
+             << image_resolution << "&height=" << image_resolution << "&srs=EPSG:32632&format=image/jpeg&bbox=";
   const std::string base_url = url_stream.str();
 
   // Compute the bounding box using integer coordinates.
