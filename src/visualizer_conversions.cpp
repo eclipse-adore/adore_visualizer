@@ -144,17 +144,41 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
 
     auto participant_color = participant.participant_data.goal_point.x < 0.01 ? colors::red : colors::purple;
 
-    auto rectangle_marker     = primitives::create_rectangle_marker( state.x, state.y,
-                                                                     0.01,                                     // Z position for height
-                                                                     participant_length,                       // Length
-                                                                     participant_width,                        // Width
-                                                                     participant_height,                       // Height (example)
-                                                                     heading,                                  // Orientation
-                                                                     "traffic_participant",                    // Namespace
-                                                                     participant.participant_data.tracking_id, // ID
-                                                                     participant_color, offset );
-    rectangle_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
-    marker_array.markers.push_back( rectangle_marker );
+    Marker object_marker;
+
+    if ( participant.participant_data.v2x_station_id != 0 )
+    {
+      object_marker = primitives::create_3d_object_marker( state.x, state.y,
+                                                                0.01, // Z height
+                                                                1,     // scale
+                                                                heading,
+                                                                "traffc_participant",
+                                                                participant.participant_data.tracking_id,
+                                                                colors::blue,
+                                                                "low_poly_ngc_model.dae",
+                                                                offset ); // Create a rectangle marker for the ego vehicle
+      object_marker.frame_locked    = true;
+      object_marker.header.frame_id = "visualization_offset";
+
+      object_marker.mesh_use_embedded_materials = true;
+      
+    }
+    else
+    {
+      
+        object_marker     = primitives::create_rectangle_marker( state.x, state.y,
+                                                                         0.01,                                     // Z position for height
+                                                                         participant_length,                       // Length
+                                                                         participant_width,                        // Width
+                                                                         participant_height,                       // Height (example)
+                                                                         heading,                                  // Orientation
+                                                                         "traffic_participant",                    // Namespace
+                                                                         participant.participant_data.tracking_id, // ID
+                                                                         participant_color, offset );
+    }
+
+    object_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
+    marker_array.markers.push_back( object_marker );
 
     // Add velocity line marker
     geometry_msgs::msg::Point start;
