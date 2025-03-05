@@ -14,12 +14,15 @@
 
  ********************************************************************************/
 #pragma once
+#include <Eigen/Dense>
+
 #include <adore_ros2_msgs/msg/traffic_participant_set.hpp>
 
 #include "characters.hpp"
 #include "color_palette.hpp"
 #include <geometry_msgs/msg/point.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <visualization_msgs/msg/marker_array.hpp>
 
@@ -137,48 +140,95 @@ create_flat_line_marker( const IterablePoints& points, const std::string& ns, in
   marker.type            = Marker::TRIANGLE_LIST; // Using triangles to form quads
   marker.action          = Marker::ADD;
 
-  // Set the color
+  // Set the color.
   marker.color.r = color[0];
   marker.color.g = color[1];
   marker.color.b = color[2];
   marker.color.a = color[3];
 
   if( points.size() < 2 )
+    return marker; // Not enough points to form a line.
+
+  // Compute per-vertex offsets.
+  // Each offset is an Eigen::Vector2d representing (x,y) offset for that vertex.
+  std::vector<Eigen::Vector2d> vertex_offsets;
+  vertex_offsets.reserve( points.size() );
+
+  // For the first vertex, use the normal from the first segment.
   {
-    return marker; // Not enough points to form a line
+    auto            it     = points.begin();
+    auto            nextIt = std::next( it );
+    double          dx     = nextIt->x - it->x;
+    double          dy     = nextIt->y - it->y;
+    double          len    = std::sqrt( dx * dx + dy * dy );
+    Eigen::Vector2d normal = ( len > 0 ) ? Eigen::Vector2d( -dy / len, dx / len ) : Eigen::Vector2d( 0, 0 );
+    vertex_offsets.push_back( normal * ( width / 2.0 ) );
   }
 
-  // Iterate through points to create a quad between each pair
-  auto prev = points.begin();
-  for( auto next = std::next( prev ); next != points.end(); ++prev, ++next )
+  // For intermediate vertices, average the normals from the incoming and outgoing segments.
+  for( auto it = std::next( points.begin() ); it != std::prev( points.end() ); ++it )
   {
-    double dx     = next->x - prev->x;
-    double dy     = next->y - prev->y;
-    double length = std::sqrt( dx * dx + dy * dy );
+    auto prevIt = std::prev( it );
+    auto nextIt = std::next( it );
 
-    if( length == 0 )
-      continue; // Avoid division by zero
+    double          dx1     = it->x - prevIt->x;
+    double          dy1     = it->y - prevIt->y;
+    double          len1    = std::sqrt( dx1 * dx1 + dy1 * dy1 );
+    Eigen::Vector2d normal1 = ( len1 > 0 ) ? Eigen::Vector2d( -dy1 / len1, dx1 / len1 ) : Eigen::Vector2d( 0, 0 );
 
-    // Compute perpendicular unit vector for width control
-    double ux = -( dy / length ) * ( width / 2.0 );
-    double uy = ( dx / length ) * ( width / 2.0 );
+    double          dx2     = nextIt->x - it->x;
+    double          dy2     = nextIt->y - it->y;
+    double          len2    = std::sqrt( dx2 * dx2 + dy2 * dy2 );
+    Eigen::Vector2d normal2 = ( len2 > 0 ) ? Eigen::Vector2d( -dy2 / len2, dx2 / len2 ) : Eigen::Vector2d( 0, 0 );
 
-    // Define the four corner points of the quad (flat rectangle)
+    Eigen::Vector2d avg_normal;
+    if( normal1.norm() > 0 || normal2.norm() > 0 )
+      avg_normal = ( normal1 + normal2 ).normalized() * ( width / 2.0 );
+    else
+      avg_normal = Eigen::Vector2d( 0, 0 );
+
+    vertex_offsets.push_back( avg_normal );
+  }
+
+  // For the last vertex, use the normal from the last segment.
+  {
+    auto            it     = std::prev( points.end() );
+    auto            prevIt = std::prev( it );
+    double          dx     = it->x - prevIt->x;
+    double          dy     = it->y - prevIt->y;
+    double          len    = std::sqrt( dx * dx + dy * dy );
+    Eigen::Vector2d normal = ( len > 0 ) ? Eigen::Vector2d( -dy / len, dx / len ) : Eigen::Vector2d( 0, 0 );
+    vertex_offsets.push_back( normal * ( width / 2.0 ) );
+  }
+
+  // Now create quads between consecutive points using the computed per-vertex offsets.
+  auto point_it = points.begin();
+  for( size_t i = 0; i < points.size() - 1; i++ )
+  {
+    // Get the current and next points.
+    auto current = *point_it++;
+    auto next    = *point_it;
+
+    // Retrieve the precomputed offsets for these vertices.
+    const Eigen::Vector2d& off_current = vertex_offsets[i];
+    const Eigen::Vector2d& off_next    = vertex_offsets[i + 1];
+
+    // Define four corners of the quad.
     geometry_msgs::msg::Point p1, p2, p3, p4;
-    p1.x = prev->x - ux - offset.x;
-    p1.y = prev->y - uy - offset.y;
+    p1.x = current.x - off_current.x() - offset.x;
+    p1.y = current.y - off_current.y() - offset.y;
     p1.z = 0.5;
-    p2.x = prev->x + ux - offset.x;
-    p2.y = prev->y + uy - offset.y;
+    p2.x = current.x + off_current.x() - offset.x;
+    p2.y = current.y + off_current.y() - offset.y;
     p2.z = 0.5;
-    p3.x = next->x - ux - offset.x;
-    p3.y = next->y - uy - offset.y;
+    p3.x = next.x - off_next.x() - offset.x;
+    p3.y = next.y - off_next.y() - offset.y;
     p3.z = 0.5;
-    p4.x = next->x + ux - offset.x;
-    p4.y = next->y + uy - offset.y;
+    p4.x = next.x + off_next.x() - offset.x;
+    p4.y = next.y + off_next.y() - offset.y;
     p4.z = 0.5;
 
-    // Define two triangles per quad
+    // Create two triangles to form the quad.
     marker.points.push_back( p1 );
     marker.points.push_back( p2 );
     marker.points.push_back( p3 );

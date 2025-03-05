@@ -195,7 +195,8 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
                                                               participant.participant_data.tracking_id + TRAJECTORY_ID_OFFSET, 1.8,
                                                               participant_color, offset );
 
-      line_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 );
+
+      line_marker.lifetime = rclcpp::Duration::from_seconds( 0.2 );
       marker_array.markers.push_back( line_marker );
     }
     marker_array.markers.push_back( heading_marker );
