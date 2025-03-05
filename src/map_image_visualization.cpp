@@ -252,10 +252,10 @@ generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynam
 // Generate a PointCloud2 message from a map image and cache it by tile index
 std::pair<TileKey, sensor_msgs::msg::PointCloud2>
 generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic &vehicle_state, const std::string &map_storage_path,
-                      bool networking_disabled, TileCache &tile_cache, const std::string &api_key )
+                      bool networking_disabled, TileCache &tile_cache, const std::string &api_key, bool grayscale )
 {
   // Configuration parameters.
-  const double magenta_correction_factor = 0.2;
+  const double magenta_correction_factor = 0.0;
   const double tile_size                 = 100; // New image generated if vehicle leaves this range.
   const double map_size                  = 100; // Visible map size.
   const double pixels_per_meter          = 5;
@@ -318,6 +318,11 @@ generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic 
       uchar     b     = color[0];
       uchar     g     = color[1];
       uchar     r     = color[2];
+
+      if( grayscale )
+      {
+        b = g = r = static_cast<uchar>( 0.299 * r + 0.587 * g + 0.114 * b );
+      }
 
       // Adjust colors to reduce magenta bias.
       r = static_cast<uchar>( std::clamp( r - magenta_correction_factor * magenta_offset, 0.0, 255.0 ) );

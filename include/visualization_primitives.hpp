@@ -107,7 +107,7 @@ create_line_marker( const IterablePoints& points, const std::string& ns, int id,
     geometry_msgs::msg::Point marker_point;
     marker_point.x = point.x - offset.x;
     marker_point.y = point.y - offset.y;
-    marker_point.z = 0.0; // Assuming a 2D point, z can be set to 0.
+    marker_point.z = 0.5;
 
     marker.points.push_back( marker_point );
   }
@@ -167,16 +167,16 @@ create_flat_line_marker( const IterablePoints& points, const std::string& ns, in
     geometry_msgs::msg::Point p1, p2, p3, p4;
     p1.x = prev->x - ux - offset.x;
     p1.y = prev->y - uy - offset.y;
-    p1.z = 0.0;
+    p1.z = 0.5;
     p2.x = prev->x + ux - offset.x;
     p2.y = prev->y + uy - offset.y;
-    p2.z = 0.0;
+    p2.z = 0.5;
     p3.x = next->x - ux - offset.x;
     p3.y = next->y - uy - offset.y;
-    p3.z = 0.0;
+    p3.z = 0.5;
     p4.x = next->x + ux - offset.x;
     p4.y = next->y + uy - offset.y;
-    p4.z = 0.0;
+    p4.z = 0.5;
 
     // Define two triangles per quad
     marker.points.push_back( p1 );

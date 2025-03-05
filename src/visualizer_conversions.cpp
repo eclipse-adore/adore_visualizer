@@ -337,6 +337,25 @@ to_marker_array( const adore_ros2_msgs::msg::Waypoints& waypoints_msg, const Off
 }
 
 MarkerArray
+to_marker_array( const adore_ros2_msgs::msg::VisualizableObject& msg, const Offset& offset )
+{
+  MarkerArray marker_array;
+
+  auto object_marker = primitives::create_3d_object_marker( msg.x, msg.y,
+                                                            msg.z, // Z height
+                                                            1,     // scale
+                                                            msg.yaw, msg.model, 0, colors::blue, msg.model,
+                                                            offset ); // Create a rectangle marker for the ego vehicle
+
+  object_marker.frame_locked    = true;
+  object_marker.header.frame_id = "visualization_offset";
+
+  object_marker.mesh_use_embedded_materials = true;
+  marker_array.markers.push_back( object_marker );
+  return marker_array;
+}
+
+MarkerArray
 to_marker_array( const adore_ros2_msgs::msg::CautionZone& caution_zone, const Offset& offset )
 {
   MarkerArray marker_array;

@@ -57,7 +57,6 @@ private:
 
   // State & Configuration
   StateBuffer                                  state_buffer;
-  std::optional<dynamics::VehicleStateDynamic> first_state;
   std::optional<dynamics::VehicleStateDynamic> latest_state;
   Offset                                       offset;
   std::string                                  maps_folder;
@@ -65,6 +64,8 @@ private:
   TileKey                                      latest_tile_index = { -1, -1 };
   std::vector<std::string>                     whitelist;
   std::string                                  map_image_api_key;
+  bool                                         map_image_grayscale = true;
+  std::string                                  ego_vehicle_3d_model_path;
 
   // Dynamic Subscription & Publisher Updates
   template<typename MsgT>
