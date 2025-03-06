@@ -146,36 +146,34 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
 
     Marker object_marker;
 
-    if ( participant.participant_data.v2x_station_id != 0 )
-    {
-      object_marker = primitives::create_3d_object_marker( state.x, state.y,
-                                                                0.01, // Z height
-                                                                1,     // scale
-                                                                heading,
-                                                                "traffc_participant",
-                                                                participant.participant_data.tracking_id,
-                                                                colors::blue,
-                                                                "low_poly_ngc_model.dae",
-                                                                offset ); // Create a rectangle marker for the ego vehicle
-      object_marker.frame_locked    = true;
-      object_marker.header.frame_id = "visualization_offset";
+    bool controllable = participant.participant_data.v2x_station_id != 0;
 
+    if( controllable )
+    {
+      object_marker                             = primitives::create_3d_object_marker( state.x, state.y,
+                                                                                       0.01, // Z height
+                                                                                       1,    // scale
+                                                                                       heading, "traffc_participant", participant.participant_data.tracking_id,
+                                                                                       colors::blue, "low_poly_ngc_model.dae",
+                                                                                       offset ); // Create a rectangle marker for the ego vehicle
+      object_marker.frame_locked                = true;
       object_marker.mesh_use_embedded_materials = true;
-      
     }
     else
     {
-      
-        object_marker     = primitives::create_rectangle_marker( state.x, state.y,
-                                                                         0.01,                                     // Z position for height
-                                                                         participant_length,                       // Length
-                                                                         participant_width,                        // Width
-                                                                         participant_height,                       // Height (example)
-                                                                         heading,                                  // Orientation
-                                                                         "traffic_participant",                    // Namespace
-                                                                         participant.participant_data.tracking_id, // ID
-                                                                         participant_color, offset );
+
+      object_marker = primitives::create_rectangle_marker( state.x, state.y,
+                                                           0.01,                                     // Z position for height
+                                                           participant_length,                       // Length
+                                                           participant_width,                        // Width
+                                                           participant_height,                       // Height (example)
+                                                           heading,                                  // Orientation
+                                                           "traffic_participant",                    // Namespace
+                                                           participant.participant_data.tracking_id, // ID
+                                                           participant_color, offset );
     }
+    object_marker.header.frame_id = "visualization_offset";
+
 
     object_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
     marker_array.markers.push_back( object_marker );
@@ -214,6 +212,8 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
     static const int TRAJECTORY_ID_OFFSET = 1000000;
     if( participant.participant_data.predicted_trajectory.states.size() > 0 )
     {
+      if( !controllable )
+        participant_color[3] = 0.1;
       // Create the line marker for the trajectory
       auto line_marker = primitives::create_flat_line_marker( participant.participant_data.predicted_trajectory.states, "decision",
                                                               participant.participant_data.tracking_id + TRAJECTORY_ID_OFFSET, 1.8,
