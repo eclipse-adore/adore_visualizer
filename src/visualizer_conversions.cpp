@@ -163,7 +163,7 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
     {
 
       object_marker = primitives::create_rectangle_marker( state.x, state.y,
-                                                           0.01,                                     // Z position for height
+                                                           participant_height / 2,                   // Z position for height
                                                            participant_length,                       // Length
                                                            participant_width,                        // Width
                                                            participant_height,                       // Height (example)
@@ -350,7 +350,7 @@ to_marker_array( const adore_ros2_msgs::msg::Waypoints& waypoints_msg, const Off
   {
     const auto& point = waypoints_msg.waypoints[i];
     // Create a sphere marker at the waypoint location (using a default scale, e.g., 0.2)
-    Marker sphere_marker = primitives::create_sphere_marker( point.x, point.y, point.z,
+    Marker sphere_marker = primitives::create_sphere_marker( point.x, point.y, 0.5,
                                                              0.3,         // Scale (radius)
                                                              "waypoints", // Namespace
                                                              i,           // ID
