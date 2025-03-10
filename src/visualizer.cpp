@@ -27,12 +27,23 @@ Visualizer::Visualizer() :
   declare_parameter( "asset folder", "" );
   get_parameter( "asset folder", maps_folder );
 
+  declare_parameter( "ego_vehicle_3d_model_path", "low_poly_ngc_model.dae" );
+  get_parameter( "ego_vehicle_3d_model_path", ego_vehicle_3d_model_path );
+
   declare_parameter( "whitelist", whitelist );
   get_parameter( "whitelist", whitelist );
-  std::cerr << "Whitelist: " << whitelist.size() << std::endl;
 
   declare_parameter( "map_image_api_key", "" );
   get_parameter( "map_image_api_key", map_image_api_key );
+
+  declare_parameter( "map_image_grayscale", true );
+  get_parameter( "map_image_grayscale", map_image_grayscale );
+
+  declare_parameter( "visualization_offset_x", 606456.0 );
+  declare_parameter( "visualization_offset_y", 5797319.0 );
+  get_parameter( "visualization_offset_x", offset.x );
+  get_parameter( "visualization_offset_y", offset.y );
+
 
   create_publishers();
   create_subscribers();
@@ -59,6 +70,7 @@ Visualizer::update_all_dynamic_subscriptions()
   update_dynamic_subscriptions<adore_ros2_msgs::msg::Waypoints>( "adore_ros2_msgs/msg/Waypoints" );
   update_dynamic_subscriptions<adore_ros2_msgs::msg::CautionZone>( "adore_ros2_msgs/msg/CautionZone" );
   update_dynamic_subscriptions<adore_ros2_msgs::msg::Trajectory>( "adore_ros2_msgs/msg/Trajectory" );
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::VisualizableObject>( "adore_ros2_msgs/msg/VisualizableObject" );
 }
 
 void
@@ -68,6 +80,7 @@ Visualizer::create_subscribers()
     "vehicle_state/dynamic", 1, std::bind( &Visualizer::vehicle_state_dynamic_callback, this, std::placeholders::_1 ) );
 
   update_all_dynamic_subscriptions();
+
   main_timer = create_wall_timer( 100ms, std::bind( &Visualizer::timer_callback, this ) );
 }
 
@@ -110,18 +123,12 @@ Visualizer::vehicle_state_dynamic_callback( const adore_ros2_msgs::msg::VehicleS
   markers_to_publish["driven_path"] = driven_path_array;
 
   // Convert the message to MarkerArray
-  auto odom_marker_array = conversions::to_marker_array( msg, offset );
+  auto ego_marker_array                     = conversions::to_marker_array( msg, offset );
+  ego_marker_array.markers[0].mesh_resource = "http://localhost:8080/assets/3d_models/" + ego_vehicle_3d_model_path;
+
 
   // Publish the MarkerArray
-  markers_to_publish["ego_vehicle"] = odom_marker_array;
-
-
-  if( !first_state.has_value() )
-  {
-    first_state = latest_state;
-    offset.x    = msg.x;
-    offset.y    = msg.y;
-  }
+  markers_to_publish["ego_vehicle"] = ego_marker_array;
 
   publish_visualization_offset();
 }

@@ -23,6 +23,7 @@
 #include <adore_ros2_msgs/msg/traffic_participant_set.hpp>
 #include <adore_ros2_msgs/msg/traffic_prediction.hpp>
 #include <adore_ros2_msgs/msg/traffic_signals.hpp>
+#include <adore_ros2_msgs/msg/visualizable_object.hpp>
 #include <adore_ros2_msgs/msg/waypoints.hpp>
 
 #include "color_palette.hpp"
@@ -68,6 +69,9 @@ MarkerArray to_marker_array( const adore_ros2_msgs::msg::TrafficSignals& traffic
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::CautionZone& caution_zone, const Offset& offset );
 
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::Waypoints& waypoints_msg, const Offset& offset );
+
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::VisualizableObject& msg, const Offset& offset );
+
 
 } // namespace conversions
 } // namespace visualizer

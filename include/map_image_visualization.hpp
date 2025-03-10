@@ -72,7 +72,8 @@ nav_msgs::msg::OccupancyGrid generate_occupancy_grid( const Offset &offset, cons
 std::pair<TileKey, sensor_msgs::msg::PointCloud2> generate_pointcloud2( const Offset                        &offset,
                                                                         const dynamics::VehicleStateDynamic &vehicle_state,
                                                                         const std::string &map_storage_path, bool networking_disabled,
-                                                                        TileCache &tile_cache, const std::string &api_key );
+                                                                        TileCache &tile_cache, const std::string &api_key,
+                                                                        bool grayscale = true );
 
 } // namespace map_image
 } // namespace visualizer
