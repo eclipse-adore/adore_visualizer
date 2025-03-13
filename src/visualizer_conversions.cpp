@@ -381,6 +381,33 @@ to_marker_array( const adore_ros2_msgs::msg::VisualizableObject& msg, const Offs
 }
 
 MarkerArray
+to_marker_array( const bob_perception_msgs::msg::TrackedOrientedBoxV2xArray& msg, const Offset& offset )
+{
+  MarkerArray marker_array;
+
+  for( size_t i = 0; i < msg.tracks.size(); ++i )
+  {
+    const auto& tracked_box = msg.tracks[i];
+
+    double center_x = tracked_box.box.center_x;
+    double center_y = tracked_box.box.center_y;
+    double center_z = tracked_box.box.center_z;
+    double angle    = tracked_box.box.angle;
+    double length   = tracked_box.box.length;
+    double width    = tracked_box.box.width;
+    double height   = tracked_box.box.height;
+
+    Marker box_marker = primitives::create_rectangle_marker( center_x, center_y, 0.0, length, width, height, angle, "tracked_objects",
+                                                             tracked_box.object_id, colors::green, offset );
+
+    box_marker.lifetime = rclcpp::Duration::from_seconds( 0.5 );
+    marker_array.markers.push_back( box_marker );
+  }
+
+  return marker_array;
+}
+
+MarkerArray
 to_marker_array( const adore_ros2_msgs::msg::CautionZone& caution_zone, const Offset& offset )
 {
   MarkerArray marker_array;

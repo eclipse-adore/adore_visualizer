@@ -71,6 +71,8 @@ Visualizer::update_all_dynamic_subscriptions()
   update_dynamic_subscriptions<adore_ros2_msgs::msg::CautionZone>( "adore_ros2_msgs/msg/CautionZone" );
   update_dynamic_subscriptions<adore_ros2_msgs::msg::Trajectory>( "adore_ros2_msgs/msg/Trajectory" );
   update_dynamic_subscriptions<adore_ros2_msgs::msg::VisualizableObject>( "adore_ros2_msgs/msg/VisualizableObject" );
+  update_dynamic_subscriptions<bob_perception_msgs::msg::TrackedOrientedBoxV2xArray>(
+    "bob_perception_msgs/msg/TrackedOrientedBoxV2xArray" );
 }
 
 void

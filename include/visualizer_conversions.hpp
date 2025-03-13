@@ -26,6 +26,7 @@
 #include <adore_ros2_msgs/msg/visualizable_object.hpp>
 #include <adore_ros2_msgs/msg/waypoints.hpp>
 
+#include "bob_perception_msgs/msg/tracked_oriented_box_v2x_array.hpp"
 #include "color_palette.hpp"
 #include "state_buffer.hpp"
 #include "visualization_primitives.hpp"
@@ -71,6 +72,8 @@ MarkerArray to_marker_array( const adore_ros2_msgs::msg::CautionZone& caution_zo
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::Waypoints& waypoints_msg, const Offset& offset );
 
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::VisualizableObject& msg, const Offset& offset );
+
+MarkerArray to_marker_array( const bob_perception_msgs::msg::TrackedOrientedBoxV2xArray& msg, const Offset& offset );
 
 
 } // namespace conversions
