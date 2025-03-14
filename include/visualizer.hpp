@@ -44,7 +44,9 @@ private:
   std::unique_ptr<tf2_ros::TransformBroadcaster> visualisation_transform_broadcaster;
 
   // Publishers
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr                                              map_cloud_publisher;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_cloud_publisher;
+  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr  map_grid_publisher;
+
   std::unordered_map<std::string, rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr>      marker_publishers;
   std::unordered_map<std::string, rclcpp::Publisher<adore_ros2_msgs::msg::TrajectoryTranspose>::SharedPtr> trajectory_publishers;
 

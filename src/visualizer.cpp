@@ -54,8 +54,10 @@ Visualizer::create_publishers()
 {
   visualisation_transform_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>( this );
   map_cloud_publisher                 = create_publisher<sensor_msgs::msg::PointCloud2>( "map_cloud", 1 );
-  marker_publishers["driven_path"]    = create_publisher<visualization_msgs::msg::MarkerArray>( "visualize_driven_path", 1 );
-  marker_publishers["ego_vehicle"]    = create_publisher<visualization_msgs::msg::MarkerArray>( "visualize_ego_vehicle", 1 );
+  map_grid_publisher                  = create_publisher<nav_msgs::msg::OccupancyGrid>( "map_grid", 1 );
+
+  marker_publishers["driven_path"] = create_publisher<visualization_msgs::msg::MarkerArray>( "visualize_driven_path", 1 );
+  marker_publishers["ego_vehicle"] = create_publisher<visualization_msgs::msg::MarkerArray>( "visualize_ego_vehicle", 1 );
 }
 
 void
@@ -105,11 +107,16 @@ Visualizer::timer_callback()
   // Generate or retrieve cached PointCloud2
   auto index_and_tile = map_image::generate_pointcloud2( offset, *latest_state, maps_folder, false, tile_cache, map_image_api_key );
 
+
+  auto grid_map = map_image::generate_occupancy_grid( offset, *latest_state, maps_folder, false, map_image_api_key );
+  map_grid_publisher->publish( grid_map );
+
   if( latest_tile_index != index_and_tile.first && map_cloud_publisher->get_subscription_count() > 0
       && index_and_tile.second.data.size() > 0 )
   {
     latest_tile_index = index_and_tile.first;
-    map_cloud_publisher->publish( index_and_tile.second );
+    if( !map_image_grayscale )
+      map_cloud_publisher->publish( index_and_tile.second );
   }
 }
 

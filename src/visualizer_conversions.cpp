@@ -65,9 +65,9 @@ to_marker_array( const adore_ros2_msgs::msg::Map& local_map_msg, const Offset& o
   {
     for( const auto& lane : road.lanes )
     {
-      auto inner_marker  = primitives::create_line_marker( lane.inner_points, "inner", lane.id, 0.15, colors::white, offset );
-      auto outer_marker  = primitives::create_line_marker( lane.outer_points, "outer", lane.id, 0.15, colors::white, offset );
-      auto center_marker = primitives::create_line_marker( lane.center_points, "center", lane.id, 0.1, colors::gray, offset );
+      auto inner_marker  = primitives::create_line_marker( lane.inner_points, "inner", lane.id, 0.1, colors::white, offset );
+      auto outer_marker  = primitives::create_line_marker( lane.outer_points, "outer", lane.id, 0.1, colors::white, offset );
+      auto center_marker = primitives::create_line_marker( lane.center_points, "center", lane.id, 0.05, colors::gray, offset );
       marker_array.markers.push_back( inner_marker );
       marker_array.markers.push_back( outer_marker );
       marker_array.markers.push_back( center_marker );

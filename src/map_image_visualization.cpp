@@ -192,11 +192,10 @@ generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynam
                          bool networking_disabled, const std::string &api_key )
 {
   // Configuration parameters.
-  const double tile_size        = 50; // New image generated if vehicle leaves this range.
-  const double map_size         = 50; // Visible map size.
-  const double pixels_per_meter = 5;
-  const int    image_pixels     = static_cast<int>( ( tile_size + map_size ) * pixels_per_meter );
-
+  const double                 tile_size        = 80; // New image generated if vehicle leaves this range.
+  const double                 map_size         = 80; // Visible map size.
+  const double                 pixels_per_meter = 20;
+  const int                    image_pixels     = static_cast<int>( ( tile_size + map_size ) * pixels_per_meter );
   nav_msgs::msg::OccupancyGrid occupancy_grid_msg;
 
   // Determine the current map tile based on vehicle position.
@@ -225,7 +224,7 @@ generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynam
   auto [map_origin_x, map_origin_y]         = compute_map_origin( map_tile_x, map_tile_y, tile_size, map_size, offset );
   occupancy_grid_msg.info.origin.position.x = map_origin_x;
   occupancy_grid_msg.info.origin.position.y = map_origin_y;
-  occupancy_grid_msg.info.origin.position.z = -0.8;
+  occupancy_grid_msg.info.origin.position.z = -0.1;
 
   // Rotate the map 180 degrees.
   tf2::Quaternion orientation;
@@ -242,7 +241,7 @@ generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynam
     for( int col = 0; col < grayscale_image.cols; ++col )
     {
       int occupancy_value = ( grayscale_image.at<uchar>( row, col ) * 100 ) / 255;
-      occupancy_grid_msg.data.push_back( 100 - occupancy_value );
+      occupancy_grid_msg.data.push_back( occupancy_value );
     }
   }
 
@@ -256,9 +255,9 @@ generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic 
 {
   // Configuration parameters.
   const double magenta_correction_factor = 0.0;
-  const double tile_size                 = 100; // New image generated if vehicle leaves this range.
-  const double map_size                  = 100; // Visible map size.
-  const double pixels_per_meter          = 5;
+  const double tile_size                 = 80; // New image generated if vehicle leaves this range.
+  const double map_size                  = 80; // Visible map size.
+  const double pixels_per_meter          = 20;
   const int    image_pixels              = static_cast<int>( ( tile_size + map_size ) * pixels_per_meter );
 
   // Determine the current map tile.
