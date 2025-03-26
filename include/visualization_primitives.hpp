@@ -95,10 +95,10 @@ create_line_marker( const PointType& start, const PointType& end, const std::str
 // Template function to create a line marker (can accept any type with x, y fields)
 template<typename IterablePoints>
 Marker
-create_line_marker( const IterablePoints& points, const std::string& ns, int id, double scale, const Color& color, const Offset& offset )
+create_line_marker( const IterablePoints& points, const std::string& ns, int id, double scale, const Color& color, const Offset& offset, const std::string& frame_id )
 {
   Marker marker;
-  marker.header.frame_id = "visualization_offset";
+  marker.header.frame_id = frame_id;
   marker.ns              = ns;
   marker.id              = id;
   marker.type            = Marker::LINE_STRIP;
@@ -131,10 +131,10 @@ create_line_marker( const IterablePoints& points, const std::string& ns, int id,
 template<typename IterablePoints>
 Marker
 create_flat_line_marker( const IterablePoints& points, const std::string& ns, int id, double width, const Color& color,
-                         const Offset& offset )
+                         const Offset& offset , const std::string& frame_id )
 {
   Marker marker;
-  marker.header.frame_id = "visualization_offset";
+  marker.header.frame_id = frame_id;
   marker.ns              = ns;
   marker.id              = id;
   marker.type            = Marker::TRIANGLE_LIST; // Using triangles to form quads
@@ -242,10 +242,10 @@ create_flat_line_marker( const IterablePoints& points, const std::string& ns, in
 }
 
 // Function to create a checkered finish flag marker array
-MarkerArray create_finish_line_marker( double x, double y, double square_size, const Offset& offset );
+MarkerArray create_finish_line_marker( double x, double y, double square_size, const Offset& offset, const std::string& frame_id );
 
 MarkerArray create_text_marker( double x, double y, const std::string& text, double size, const Color& color, const std::string& ns,
-                                const Offset& offset, double rotation = 0 );
+                              const Offset& offset, const std::string& frame_id, double rotation = 0 );
 } // namespace primitives
 
 } // namespace visualizer

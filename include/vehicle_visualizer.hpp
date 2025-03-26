@@ -1,0 +1,104 @@
+/********************************************************************************
+ * Copyright (C) 2024-2025 German Aerospace Center (DLR).
+ * Eclipse ADORe, Automated Driving Open Research https://eclipse.org/adore
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *    Marko Mizdrak
+ *    Mikkel Skov Maarssø
+ ********************************************************************************/
+#pragma once
+#include <adore_math/point.h>
+#include "adore_dynamics_conversions.hpp"
+#include "adore_map_conversions.hpp"
+#include "adore_math/angles.h"
+#include <string>
+#include "adore_ros2_msgs/msg/goal_point.hpp"
+#include "adore_ros2_msgs/msg/map.hpp"
+#include "adore_ros2_msgs/msg/traffic_prediction.hpp"
+#include "adore_ros2_msgs/msg/trajectory.hpp"
+#include "adore_ros2_msgs/msg/vehicle_state_dynamic.hpp"
+#include <adore_ros2_msgs/msg/traffic_participant_set.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include "visualizer_conversions.hpp"
+#include <adore_ros2_msgs/msg/trajectory.hpp>
+#include "tf2_ros/transform_broadcaster.h"
+#include <nav_msgs/msg/odometry.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include "map_image_visualization.hpp"
+
+namespace adore
+{
+namespace visualizer
+{
+
+
+class VehicleVisualizer : public rclcpp::Node
+{
+private:
+
+  // Timers & TF
+  rclcpp::TimerBase::SharedPtr                   main_timer;
+  std::unique_ptr<tf2_ros::TransformBroadcaster> visualisation_transform_broadcaster;
+
+  // Subscriber/Publisher Creation Functions
+  void create_subscribers();
+  void create_publishers();
+
+  // Subscriptions
+  rclcpp::Subscription<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr subscriber_vehicle_state_dynamic;
+  rclcpp::Subscription<adore_ros2_msgs::msg::Trajectory>::SharedPtr subscriber_planned_trajectory;
+  rclcpp::Subscription<adore_ros2_msgs::msg::Map>::SharedPtr subscriber_local_map;
+  rclcpp::Subscription<adore_ros2_msgs::msg::GoalPoint>::SharedPtr subscriber_goal_point;
+  rclcpp::Subscription<adore_ros2_msgs::msg::Route>::SharedPtr subscriber_route;
+
+  // Publishers
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_vehicle_markers;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_planned_trajectory_markers;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_local_map_markers;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_goal_point_markers;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_route_markers;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_map_cloud;
+ 
+  // State
+  std::optional<Offset> visualization_offset;
+  std::optional<adore_ros2_msgs::msg::VehicleStateDynamic> latest_vehicle_state_dynamic;
+  std::optional<adore_ros2_msgs::msg::Trajectory> latest_planned_trajectory;
+  std::optional<adore_ros2_msgs::msg::Map> latest_local_map;
+  std::optional<adore_ros2_msgs::msg::GoalPoint> latest_goal_point;
+  std::optional<adore_ros2_msgs::msg::Route> latest_route;
+  std::string maps_folder;
+  TileCache tile_cache;
+  TileKey latest_tile_index = { -1, -1 };
+  std::string map_image_api_key;
+  bool map_image_grayscale = true;
+
+  bool visualize_vehicle = false;
+  bool visualize_planned_trajectory = false;
+  bool visualize_local_map = false;
+  bool visualize_goal_point = false;
+  bool visualize_route = false;
+  bool visualize_map_image = false;
+
+  // callback functions
+  void timer_callback();
+  void vehicle_state_dynamic_callback(const adore_ros2_msgs::msg::VehicleStateDynamic& msg);
+  void planned_trajectory_callback(const adore_ros2_msgs::msg::Trajectory& msg);
+  void local_map_callback(const adore_ros2_msgs::msg::Map& msg);
+  void route_callback(const adore_ros2_msgs::msg::Route& msg);
+  void goal_point_callback(const adore_ros2_msgs::msg::GoalPoint& msg);
+  void publish_visualization_offset();
+
+public:
+
+  VehicleVisualizer();
+};
+
+} // namespace visualizer
+} // namespace adore

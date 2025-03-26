@@ -252,7 +252,7 @@ generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynam
 // Generate a PointCloud2 message from a map image and cache it by tile index
 std::pair<TileKey, sensor_msgs::msg::PointCloud2>
 generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic &vehicle_state, const std::string &map_storage_path,
-                      bool networking_disabled, TileCache &tile_cache, const std::string &api_key, bool grayscale )
+                      bool networking_disabled, TileCache &tile_cache, const std::string &api_key, const std::string& frame_id, bool grayscale )
 {
   // Configuration parameters.
   const double magenta_correction_factor = 0.0;
@@ -273,7 +273,7 @@ generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic 
   }
 
   sensor_msgs::msg::PointCloud2 cloud_msg;
-  cloud_msg.header.frame_id = "visualization_offset";
+  cloud_msg.header.frame_id = frame_id;
   cloud_msg.header.stamp    = rclcpp::Clock().now();
 
   // Fetch or download the map image.

@@ -1,0 +1,266 @@
+/********************************************************************************
+ * Copyright (C) 2024-2025 German Aerospace Center (DLR).
+ * Eclipse ADORe, Automated Driving Open Research https://eclipse.org/adore
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *    Marko Mizdrak
+ *    Mikkel Skov Maarssø
+ ********************************************************************************/
+#include "vehicle_visualizer.hpp"
+#include <adore_math/point.h>
+#include <adore_dynamics_conversions.hpp>
+#include <dynamics/vehicle_state.hpp>
+#include "adore_ros2_msgs/msg/goal_point.hpp"
+#include "adore_ros2_msgs/msg/route.hpp"
+#include "adore_ros2_msgs/msg/trajectory.hpp"
+#include "adore_ros2_msgs/msg/vehicle_state_dynamic.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
+#include "visualization_primitives.hpp"
+#include "visualizer_conversions.hpp"
+
+using namespace std::chrono_literals;
+
+namespace adore
+{
+namespace visualizer
+{
+
+VehicleVisualizer::VehicleVisualizer() : Node( "vehicle_visualizer_node" )
+{
+  declare_parameter( "asset folder", "" );
+  get_parameter( "asset folder", maps_folder );
+
+  declare_parameter( "map_image_api_key", "" );
+  get_parameter( "map_image_api_key", map_image_api_key );
+
+  declare_parameter( "map_image_grayscale", true );
+  get_parameter( "map_image_grayscale", map_image_grayscale );
+  
+  declare_parameter( "visualize_vehicle", false );
+  get_parameter( "visualize_vehicle", visualize_vehicle);
+
+  declare_parameter( "visualize_local_map", false );
+  get_parameter( "visualize_local_map", visualize_local_map);
+
+  declare_parameter( "visualize_route", false );
+  get_parameter( "visualize_route", visualize_route);
+
+  declare_parameter( "visualize_planned_trajectory", false );
+  get_parameter( "visualize_planned_trajectory", visualize_planned_trajectory);
+  
+  declare_parameter( "visualize_goal_point", false );
+  get_parameter( "visualize_goal_point", visualize_goal_point );
+
+  declare_parameter( "visualize_map_image", false );
+  get_parameter( "visualize_map_image", visualize_map_image );
+
+  create_subscribers();
+  create_publishers();
+}
+
+void VehicleVisualizer::create_subscribers()
+{
+  visualisation_transform_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>( this );
+  
+  if ( visualize_vehicle )
+  {
+    subscriber_vehicle_state_dynamic = create_subscription<adore_ros2_msgs::msg::VehicleStateDynamic>(
+      "vehicle_state/dynamic", 10, std::bind( &VehicleVisualizer::vehicle_state_dynamic_callback, this, std::placeholders::_1 ) );
+  }
+
+  if ( visualize_planned_trajectory )
+  {
+    subscriber_planned_trajectory = create_subscription<adore_ros2_msgs::msg::Trajectory>(
+      "trajectory_decision", 10, std::bind( &VehicleVisualizer::planned_trajectory_callback, this, std::placeholders::_1 ) );
+  }
+
+  if ( visualize_local_map )
+  {
+    subscriber_local_map = create_subscription<adore_ros2_msgs::msg::Map>(
+      "local_map", 10, std::bind( &VehicleVisualizer::local_map_callback, this, std::placeholders::_1 ) );
+  }
+
+  if ( visualize_route )
+  {
+    subscriber_route = create_subscription<adore_ros2_msgs::msg::Route>(
+      "route", 10, std::bind( &VehicleVisualizer::route_callback, this, std::placeholders::_1 ) );
+  }
+
+  if ( visualize_goal_point )
+  {
+    subscriber_goal_point = create_subscription<adore_ros2_msgs::msg::GoalPoint>(
+      "mission/goal_position", 10, std::bind( &VehicleVisualizer::goal_point_callback, this, std::placeholders::_1 ) );
+  }
+
+  main_timer = create_wall_timer( 100ms, std::bind( &VehicleVisualizer::timer_callback, this ) );  
+}
+
+void VehicleVisualizer::create_publishers()
+{
+  if ( visualize_vehicle )
+  {
+    publisher_vehicle_markers = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_vehicle", 10 );
+  }
+
+  if ( visualize_planned_trajectory )
+  {
+    publisher_planned_trajectory_markers = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_planned_trajectory", 10 );
+  }
+
+  if ( visualize_local_map )
+  {
+    publisher_local_map_markers = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_local_map", 10 );
+  }
+
+  if ( visualize_route )
+  {
+    publisher_route_markers = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_route", 10 );
+  }
+
+  if ( visualize_goal_point )
+  {
+    publisher_goal_point_markers = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_goal_point", 10 );
+  }
+
+  if ( visualize_map_image )
+  {
+    publisher_map_cloud = create_publisher<sensor_msgs::msg::PointCloud2>("visualize_map_image", 10 );
+  }
+  
+}
+
+void VehicleVisualizer::timer_callback()
+{
+  if ( !latest_vehicle_state_dynamic.has_value() || !visualization_offset.has_value() )
+    return;
+
+  publish_visualization_offset();  
+
+  std::string ns_prefix = get_namespace();
+  std::string frame_id = ns_prefix + "_visualization_offset";
+
+  if ( visualize_vehicle )
+  {
+    visualization_msgs::msg::MarkerArray vehicle_marker = conversions::to_marker_array(latest_vehicle_state_dynamic.value(), visualization_offset.value());
+    publisher_vehicle_markers->publish(vehicle_marker);
+  }
+
+  if ( visualize_planned_trajectory && latest_planned_trajectory.has_value() )
+  {
+    visualization_msgs::msg::MarkerArray planned_trajectory_marker = conversions::to_marker_array(latest_planned_trajectory.value(), visualization_offset.value(), frame_id);
+    publisher_planned_trajectory_markers->publish(planned_trajectory_marker);
+  }
+
+  if ( visualize_local_map && latest_local_map.has_value() )
+  {
+    visualization_msgs::msg::MarkerArray local_map_marker = conversions::to_marker_array(latest_local_map.value(), visualization_offset.value(), frame_id);
+    publisher_local_map_markers->publish(local_map_marker);
+  }
+
+  if ( visualize_goal_point && latest_goal_point.has_value() )
+  {
+    visualization_msgs::msg::MarkerArray goal_point_marker = conversions::to_marker_array(latest_goal_point.value(), visualization_offset.value(), frame_id);
+    publisher_goal_point_markers->publish(goal_point_marker);
+  }
+
+  if ( visualize_route && latest_route.has_value() )
+  {
+    visualization_msgs::msg::MarkerArray route_marker = conversions::to_marker_array(latest_route.value(), visualization_offset.value(), frame_id);
+    publisher_route_markers->publish(route_marker);
+  }
+    // auto vehicle_marker = conversions::
+
+  if ( visualize_map_image )
+  {
+    dynamics::VehicleStateDynamic state = dynamics::conversions::to_cpp_type(latest_vehicle_state_dynamic.value());
+    auto index_and_tile = map_image::generate_pointcloud2( visualization_offset.value(), state, maps_folder, false, tile_cache, map_image_api_key, frame_id );
+
+    if( latest_tile_index != index_and_tile.first && index_and_tile.second.data.size() > 0 )
+    {
+      latest_tile_index = index_and_tile.first;
+      publisher_map_cloud->publish( index_and_tile.second );
+    }
+    
+  }
+
+  
+
+}
+
+void VehicleVisualizer::vehicle_state_dynamic_callback(const adore_ros2_msgs::msg::VehicleStateDynamic& msg)
+{
+  if ( !latest_vehicle_state_dynamic.has_value() ) // this will only get triggered once
+  {
+    visualization_offset = Offset {msg.x, msg.y};
+  }
+
+  latest_vehicle_state_dynamic = msg;
+
+}
+
+void VehicleVisualizer::local_map_callback(const adore_ros2_msgs::msg::Map& msg)
+{
+  latest_local_map = msg;
+}
+
+
+void VehicleVisualizer::publish_visualization_offset()
+{
+  if ( !visualization_offset.has_value() )
+    return;
+  
+  geometry_msgs::msg::TransformStamped viz_transform;
+
+  viz_transform.header.stamp    = this->get_clock()->now();
+  viz_transform.header.frame_id = "world";
+
+  std::string ns = get_namespace();
+  viz_transform.child_frame_id  = ns + "_visualization_offset";
+
+  viz_transform.transform.translation.x = visualization_offset.value().x;
+  viz_transform.transform.translation.y = visualization_offset.value().y;
+  viz_transform.transform.translation.z = 0;
+
+  tf2::Quaternion q;
+  q.setRPY( 0, 0, 0 );
+  viz_transform.transform.rotation.x = q.x();
+  viz_transform.transform.rotation.y = q.y();
+  viz_transform.transform.rotation.z = q.z();
+  viz_transform.transform.rotation.w = q.w();
+
+  visualisation_transform_broadcaster->sendTransform( viz_transform );
+}
+
+void VehicleVisualizer::planned_trajectory_callback(const adore_ros2_msgs::msg::Trajectory& msg)
+{
+  latest_planned_trajectory = msg;
+}
+
+void VehicleVisualizer::goal_point_callback(const adore_ros2_msgs::msg::GoalPoint& msg)
+{
+  latest_goal_point = msg;
+}
+
+void VehicleVisualizer::route_callback(const adore_ros2_msgs::msg::Route& msg)
+{
+  latest_route = msg;
+}
+
+} // namespace visualizer
+} // namespace adore
+
+int
+main( int argc, char* argv[] )
+{
+  rclcpp::init( argc, argv );
+
+  std::shared_ptr<adore::visualizer::VehicleVisualizer> node = std::make_shared<adore::visualizer::VehicleVisualizer>();
+  rclcpp::spin( node );
+  rclcpp::shutdown();
+}

@@ -93,7 +93,7 @@ create_sphere_marker( double x, double y, double z, double scale, const std::str
 }
 
 MarkerArray
-create_finish_line_marker( double x, double y, double square_size, const Offset& offset )
+create_finish_line_marker( double x, double y, double square_size, const Offset& offset, const std::string& frame_id )
 {
   MarkerArray marker_array;
 
@@ -108,7 +108,7 @@ create_finish_line_marker( double x, double y, double square_size, const Offset&
     for( int col = 0; col < grid_cols; ++col )
     {
       Marker marker;
-      marker.header.frame_id = "visualization_offset";
+      marker.header.frame_id = frame_id;
       marker.ns              = "finish_line";
       marker.id              = row * grid_cols + col;
       marker.type            = Marker::CUBE;
@@ -154,7 +154,7 @@ create_3d_object_marker( double x, double y, double z, double scale, double head
                          const std::string& file_name, const Offset& offset )
 {
   Marker marker;
-  marker.header.frame_id = "visualization_offset";
+  marker.header.frame_id = "visualization_offset"; // @TODO, this might cause future problems
   marker.ns              = ns;
   marker.id              = id;
   marker.type            = Marker::MESH_RESOURCE;
@@ -192,7 +192,7 @@ create_3d_object_marker( double x, double y, double z, double scale, double head
 
 MarkerArray
 create_text_marker( double x, double y, const std::string& text, double size, const Color& color, const std::string& ns,
-                    const Offset& offset, double rotation )
+                    const Offset& offset, const std::string& frame_id, double rotation )
 {
   MarkerArray marker_array;
 
@@ -236,7 +236,7 @@ create_text_marker( double x, double y, const std::string& text, double size, co
         if( row_bits & ( 1 << ( 4 - col ) ) ) // Check if the pixel is lit
         {
           Marker pixel_marker;
-          pixel_marker.header.frame_id = "visualization_offset";
+          pixel_marker.header.frame_id = frame_id;
           pixel_marker.ns              = ns;
           pixel_marker.id              = marker_id++;
           pixel_marker.type            = Marker::CUBE;
