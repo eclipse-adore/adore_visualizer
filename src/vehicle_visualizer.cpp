@@ -66,7 +66,8 @@ VehicleVisualizer::VehicleVisualizer() : Node( "vehicle_visualizer_node" )
 
 void VehicleVisualizer::create_subscribers()
 {
-  visualisation_transform_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>( this );
+  vehicle_transform_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>( *this );
+  visualisation_offset_transform_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>( this );
   
   if ( visualize_vehicle )
   {
@@ -132,11 +133,13 @@ void VehicleVisualizer::create_publishers()
   {
     publisher_map_cloud = create_publisher<sensor_msgs::msg::PointCloud2>("visualize_map_image", 10 );
   }
+
   
 }
 
 void VehicleVisualizer::timer_callback()
 {
+  current_time = now();
   if ( !latest_vehicle_state_dynamic.has_value() || !visualization_offset.has_value() )
     return;
 
@@ -144,6 +147,8 @@ void VehicleVisualizer::timer_callback()
 
   std::string ns_prefix = get_namespace();
   std::string frame_id = ns_prefix + "_visualization_offset";
+
+  dynamics::VehicleStateDynamic state = dynamics::conversions::to_cpp_type(latest_vehicle_state_dynamic.value());
 
   if ( visualize_vehicle )
   {
@@ -178,7 +183,6 @@ void VehicleVisualizer::timer_callback()
 
   if ( visualize_map_image )
   {
-    dynamics::VehicleStateDynamic state = dynamics::conversions::to_cpp_type(latest_vehicle_state_dynamic.value());
     auto index_and_tile = map_image::generate_pointcloud2( visualization_offset.value(), state, maps_folder, false, tile_cache, map_image_api_key, frame_id );
 
     if( latest_tile_index != index_and_tile.first && index_and_tile.second.data.size() > 0 )
@@ -186,11 +190,10 @@ void VehicleVisualizer::timer_callback()
       latest_tile_index = index_and_tile.first;
       publisher_map_cloud->publish( index_and_tile.second );
     }
-    
   }
-
   
 
+  last_update_time = current_time;
 }
 
 void VehicleVisualizer::vehicle_state_dynamic_callback(const adore_ros2_msgs::msg::VehicleStateDynamic& msg)
@@ -215,6 +218,10 @@ void VehicleVisualizer::publish_visualization_offset()
   if ( !visualization_offset.has_value() )
     return;
   
+  dynamics::VehicleStateDynamic state = dynamics::conversions::to_cpp_type(latest_vehicle_state_dynamic.value());
+  auto vehicle_frame = dynamics::conversions::vehicle_state_to_transform( state , last_update_time, get_namespace() );
+  vehicle_transform_broadcaster->sendTransform( vehicle_frame );
+  
   geometry_msgs::msg::TransformStamped viz_transform;
 
   viz_transform.header.stamp    = this->get_clock()->now();
@@ -234,7 +241,7 @@ void VehicleVisualizer::publish_visualization_offset()
   viz_transform.transform.rotation.z = q.z();
   viz_transform.transform.rotation.w = q.w();
 
-  visualisation_transform_broadcaster->sendTransform( viz_transform );
+  visualisation_offset_transform_broadcaster->sendTransform( viz_transform );
 }
 
 void VehicleVisualizer::planned_trajectory_callback(const adore_ros2_msgs::msg::Trajectory& msg)

@@ -45,7 +45,8 @@ private:
 
   // Timers & TF
   rclcpp::TimerBase::SharedPtr                   main_timer;
-  std::unique_ptr<tf2_ros::TransformBroadcaster> visualisation_transform_broadcaster;
+  std::unique_ptr<tf2_ros::TransformBroadcaster> vehicle_transform_broadcaster;
+  std::unique_ptr<tf2_ros::TransformBroadcaster> visualisation_offset_transform_broadcaster;
 
   // Subscriber/Publisher Creation Functions
   void create_subscribers();
@@ -78,6 +79,8 @@ private:
   TileKey latest_tile_index = { -1, -1 };
   std::string map_image_api_key;
   bool map_image_grayscale = true;
+  rclcpp::Time current_time;
+  rclcpp::Time last_update_time;
 
   bool visualize_vehicle = false;
   bool visualize_planned_trajectory = false;
