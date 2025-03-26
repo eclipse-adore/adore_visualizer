@@ -260,7 +260,7 @@ to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory, const Offse
 
 // Conversion function for odometry to markers
 MarkerArray
-to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& /*msg*/, const Offset& /*offset*/  )
+to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& /*msg*/, const Offset& /*offset*/, const std::string& frame_id )
 {
   MarkerArray marker_array;
 
@@ -271,7 +271,7 @@ to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& /*msg*/, const
                                                                  { 0.0, 0.0 } ); // Create a rectangle marker for the ego vehicle
 
   ego_vehicle_marker.frame_locked    = true;
-  ego_vehicle_marker.header.frame_id = "ego_vehicle";
+  ego_vehicle_marker.header.frame_id = frame_id;
 
   ego_vehicle_marker.mesh_use_embedded_materials = true;
   marker_array.markers.push_back( ego_vehicle_marker );

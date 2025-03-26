@@ -49,7 +49,7 @@ namespace conversions
 // Helper functions to convert messages to MarkerArray
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& msg, const Offset& offset, const std::string& frame_id );
 
-MarkerArray to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Offset& offset );
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Offset& offset, const std::string& frame_id );
 
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::Trajectory& set_point_request, const Offset& offset, const std::string& frame_id );
 

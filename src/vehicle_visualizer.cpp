@@ -133,8 +133,6 @@ void VehicleVisualizer::create_publishers()
   {
     publisher_map_cloud = create_publisher<sensor_msgs::msg::PointCloud2>("visualize_map_image", 10 );
   }
-
-  
 }
 
 void VehicleVisualizer::timer_callback()
@@ -152,7 +150,7 @@ void VehicleVisualizer::timer_callback()
 
   if ( visualize_vehicle )
   {
-    visualization_msgs::msg::MarkerArray vehicle_marker = conversions::to_marker_array(latest_vehicle_state_dynamic.value(), visualization_offset.value());
+    visualization_msgs::msg::MarkerArray vehicle_marker = conversions::to_marker_array(latest_vehicle_state_dynamic.value(), visualization_offset.value(), ns_prefix);
     publisher_vehicle_markers->publish(vehicle_marker);
   }
 
@@ -192,7 +190,6 @@ void VehicleVisualizer::timer_callback()
     }
   }
   
-
   last_update_time = current_time;
 }
 
