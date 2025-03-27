@@ -20,6 +20,8 @@
 #include <string>
 #include "adore_ros2_msgs/msg/goal_point.hpp"
 #include "adore_ros2_msgs/msg/map.hpp"
+#include "adore_ros2_msgs/msg/traffic_participant.hpp"
+#include "adore_ros2_msgs/msg/traffic_participant_set.hpp"
 #include "adore_ros2_msgs/msg/traffic_prediction.hpp"
 #include "adore_ros2_msgs/msg/trajectory.hpp"
 #include "adore_ros2_msgs/msg/vehicle_state_dynamic.hpp"
@@ -58,6 +60,7 @@ private:
   rclcpp::Subscription<adore_ros2_msgs::msg::Map>::SharedPtr subscriber_local_map;
   rclcpp::Subscription<adore_ros2_msgs::msg::GoalPoint>::SharedPtr subscriber_goal_point;
   rclcpp::Subscription<adore_ros2_msgs::msg::Route>::SharedPtr subscriber_route;
+  rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr subscriber_traffic_participants;
 
   // Publishers
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_vehicle_markers;
@@ -65,6 +68,7 @@ private:
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_local_map_markers;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_goal_point_markers;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_route_markers;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_traffic_participant_markers;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_map_cloud;
  
   // State
@@ -74,6 +78,8 @@ private:
   std::optional<adore_ros2_msgs::msg::Map> latest_local_map;
   std::optional<adore_ros2_msgs::msg::GoalPoint> latest_goal_point;
   std::optional<adore_ros2_msgs::msg::Route> latest_route;
+  std::optional<adore_ros2_msgs::msg::TrafficParticipantSet> latest_traffic_participant_set;
+
   std::string maps_folder;
   TileCache tile_cache;
   TileKey latest_tile_index = { -1, -1 };
@@ -81,13 +87,13 @@ private:
   bool map_image_grayscale = true;
   rclcpp::Time current_time;
   rclcpp::Time last_update_time;
-
   bool visualize_vehicle = false;
   bool visualize_planned_trajectory = false;
   bool visualize_local_map = false;
   bool visualize_goal_point = false;
   bool visualize_route = false;
   bool visualize_map_image = false;
+  bool visualize_traffic_participants = false;
 
   // callback functions
   void timer_callback();
@@ -96,6 +102,7 @@ private:
   void local_map_callback(const adore_ros2_msgs::msg::Map& msg);
   void route_callback(const adore_ros2_msgs::msg::Route& msg);
   void goal_point_callback(const adore_ros2_msgs::msg::GoalPoint& msg);
+  void traffic_participant_set_callback(const adore_ros2_msgs::msg::TrafficParticipantSet& msg);
   void publish_visualization_offset();
 
 public:

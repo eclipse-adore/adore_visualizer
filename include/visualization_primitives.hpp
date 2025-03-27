@@ -58,10 +58,10 @@ Marker create_sphere_marker( double x, double y, double z, double scale, const s
 template<typename PointType>
 Marker
 create_line_marker( const PointType& start, const PointType& end, const std::string& ns, int id, double scale, const Color& color,
-                    const Offset& offset )
+                    const Offset& offset, const std::string& frame_id )
 {
   Marker marker;
-  marker.header.frame_id = "visualization_offset";
+  marker.header.frame_id = frame_id;
   marker.ns              = ns;
   marker.id              = id;
   marker.type            = Marker::LINE_STRIP;

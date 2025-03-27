@@ -126,7 +126,7 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
     double participant_width  = participant.participant_data.physical_parameters.body_width;
     double participant_height = participant.participant_data.physical_parameters.body_height;
 
-    auto participant_color = participant.participant_data.goal_point.x < 0.01 ? colors::red : colors::purple;
+    auto participant_color = participant.participant_data.goal_point.x < 0.01 ? colors::soft_purple : colors::soft_red;
 
     Marker object_marker;
 
@@ -156,7 +156,7 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
                                                            participant.participant_data.tracking_id, // ID
                                                            participant_color, offset );
     }
-    object_marker.header.frame_id = "visualization_offset";
+    object_marker.header.frame_id = frame_id;
 
 
     object_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
@@ -176,7 +176,7 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
     auto velocity_marker     = primitives::create_line_marker( start, end, "participant_velocity",
                                                                participant.participant_data.tracking_id + VEL_ID_OFFSET,
                                                                0.1, // Line width
-                                                               colors::orange, offset );
+                                                               colors::orange, offset, frame_id );
     velocity_marker.type     = velocity_marker.ARROW;
     velocity_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
     marker_array.markers.push_back( velocity_marker );
@@ -191,7 +191,7 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
     auto heading_marker                   = primitives::create_line_marker( start, heading_end, "participant_heading",
                                                                             participant.participant_data.tracking_id + HEADING_ID_OFFSET,
                                                                             0.2, // Line width
-                                                                            colors::gray, offset );
+                                                                            colors::gray, offset, frame_id );
     heading_marker.lifetime               = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
     static const int TRAJECTORY_ID_OFFSET = 1000000;
     if( participant.participant_data.predicted_trajectory.states.size() > 0 )

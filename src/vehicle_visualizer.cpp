@@ -18,6 +18,7 @@
 #include <dynamics/vehicle_state.hpp>
 #include "adore_ros2_msgs/msg/goal_point.hpp"
 #include "adore_ros2_msgs/msg/route.hpp"
+#include "adore_ros2_msgs/msg/traffic_participant_set.hpp"
 #include "adore_ros2_msgs/msg/trajectory.hpp"
 #include "adore_ros2_msgs/msg/vehicle_state_dynamic.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
@@ -60,6 +61,9 @@ VehicleVisualizer::VehicleVisualizer() : Node( "vehicle_visualizer_node" )
   declare_parameter( "visualize_map_image", false );
   get_parameter( "visualize_map_image", visualize_map_image );
 
+  declare_parameter( "visualize_traffic_participants", false );
+  get_parameter( "visualize_traffic_participants", visualize_traffic_participants);
+
   create_subscribers();
   create_publishers();
 }
@@ -99,6 +103,12 @@ void VehicleVisualizer::create_subscribers()
       "mission/goal_position", 10, std::bind( &VehicleVisualizer::goal_point_callback, this, std::placeholders::_1 ) );
   }
 
+  if ( visualize_traffic_participants )
+  {
+    subscriber_traffic_participants = create_subscription<adore_ros2_msgs::msg::TrafficParticipantSet>(
+      "traffic_participants", 10, std::bind( &VehicleVisualizer::traffic_participant_set_callback, this, std::placeholders::_1 ) );
+  }
+
   main_timer = create_wall_timer( 100ms, std::bind( &VehicleVisualizer::timer_callback, this ) );  
 }
 
@@ -127,6 +137,11 @@ void VehicleVisualizer::create_publishers()
   if ( visualize_goal_point )
   {
     publisher_goal_point_markers = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_goal_point", 10 );
+  }
+
+  if ( visualize_traffic_participants )
+  {
+    publisher_traffic_participant_markers = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_traffic_participants", 10 );
   }
 
   if ( visualize_map_image )
@@ -179,6 +194,13 @@ void VehicleVisualizer::timer_callback()
   }
     // auto vehicle_marker = conversions::
 
+  if ( visualize_traffic_participants && latest_traffic_participant_set.has_value() )
+  {
+    visualization_msgs::msg::MarkerArray traffic_participant_set_marker = conversions::to_marker_array(latest_traffic_participant_set.value(), visualization_offset.value(), frame_id);
+    publisher_traffic_participant_markers->publish(traffic_participant_set_marker);
+  }
+
+    
   if ( visualize_map_image )
   {
     auto index_and_tile = map_image::generate_pointcloud2( visualization_offset.value(), state, maps_folder, false, tile_cache, map_image_api_key, frame_id );
@@ -254,6 +276,11 @@ void VehicleVisualizer::goal_point_callback(const adore_ros2_msgs::msg::GoalPoin
 void VehicleVisualizer::route_callback(const adore_ros2_msgs::msg::Route& msg)
 {
   latest_route = msg;
+}
+
+void VehicleVisualizer::traffic_participant_set_callback(const adore_ros2_msgs::msg::TrafficParticipantSet& msg)
+{
+  latest_traffic_participant_set = msg;
 }
 
 } // namespace visualizer
