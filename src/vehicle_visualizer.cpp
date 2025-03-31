@@ -73,11 +73,8 @@ void VehicleVisualizer::create_subscribers()
   vehicle_transform_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>( *this );
   visualisation_offset_transform_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>( this );
   
-  if ( visualize_vehicle )
-  {
-    subscriber_vehicle_state_dynamic = create_subscription<adore_ros2_msgs::msg::VehicleStateDynamic>(
-      "vehicle_state/dynamic", 10, std::bind( &VehicleVisualizer::vehicle_state_dynamic_callback, this, std::placeholders::_1 ) );
-  }
+  subscriber_vehicle_state_dynamic = create_subscription<adore_ros2_msgs::msg::VehicleStateDynamic>(
+    "vehicle_state/dynamic", 10, std::bind( &VehicleVisualizer::vehicle_state_dynamic_callback, this, std::placeholders::_1 ) );
 
   if ( visualize_planned_trajectory )
   {
