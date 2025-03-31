@@ -16,6 +16,7 @@
 #include "adore_map_conversions.hpp"
 #include "adore_math/angles.h"
 #include "adore_ros2_msgs/msg/goal_point.hpp"
+#include "adore_ros2_msgs/msg/polygon2d.hpp"
 #include "adore_ros2_msgs/msg/route.hpp"
 #include "adore_ros2_msgs/msg/trajectory.hpp"
 #include <adore_ros2_msgs/msg/caution_zone.hpp>
@@ -48,6 +49,8 @@ namespace conversions
 
 // Helper functions to convert messages to MarkerArray
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& msg, const Offset& offset, const std::string& frame_id );
+
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::Polygon2d& msg, const Offset& offset, const std::string& frame_id );
 
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Offset& offset, const std::string& frame_id );
 

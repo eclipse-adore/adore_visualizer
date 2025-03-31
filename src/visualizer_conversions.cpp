@@ -12,7 +12,12 @@
  *    Marko Mizdrak
  ********************************************************************************/
 #include "visualizer_conversions.hpp"
+#include <adore_math/point.h>
+#include <adore_math/polygon.h>
+#include <adore_dynamics_conversions.hpp>
+#include <dynamics/traffic_participant.hpp>
 
+#include "adore_ros2_msgs/msg/point2d.hpp"
 #include "adore_ros2_msgs/msg/vehicle_state_dynamic.hpp"
 #include "color_palette.hpp"
 #include "visualization_primitives.hpp"
@@ -37,6 +42,20 @@ to_marker_array( const adore_ros2_msgs::msg::SafetyCorridor& safety_corridor, co
                                                            offset , frame_id );
   marker_array.markers.push_back( line_marker_right );
 
+  return marker_array;
+}
+
+MarkerArray
+to_marker_array( const adore_ros2_msgs::msg::Polygon2d& msg, const Offset& offset, const std::string& frame_id )
+{
+  MarkerArray marker_array;
+  auto closed_border = msg.points;
+  if( closed_border.size() > 0 )
+  {
+    closed_border.push_back( closed_border.front() );
+    auto boundary_marker = primitives::create_line_marker( closed_border, "boundary", 999, 0.2, colors::soft_green, offset, frame_id );
+    marker_array.markers.push_back( boundary_marker );
+  }
   return marker_array;
 }
 
@@ -113,6 +132,8 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
 {
   MarkerArray marker_array;
 
+  adore::dynamics::TrafficParticipantSet traffic_participant_set = dynamics::conversions::to_cpp_type(participant_set);
+
   for( const auto& participant : participant_set.data )
   {
     const auto& state   = participant.participant_data.motion_state;
@@ -126,11 +147,20 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
     double participant_width  = participant.participant_data.physical_parameters.body_width;
     double participant_height = participant.participant_data.physical_parameters.body_height;
 
-    auto participant_color = participant.participant_data.goal_point.x < 0.01 ? colors::soft_purple : colors::soft_red;
+    auto participant_color = participant.participant_data.goal_point.x < 0.01 ? colors::soft_red : colors::soft_purple;
 
-    Marker object_marker;
-
+    // bool controllable = false;
     bool controllable = participant.participant_data.v2x_station_id != 0;
+    if ( traffic_participant_set.validity_area.has_value() )
+    {
+      adore::math::Point2d participant_position { participant.participant_data.motion_state.x, participant.participant_data.motion_state.y };
+      if ( controllable && traffic_participant_set.validity_area.value().point_inside(participant_position))
+      {
+        participant_color = colors::gray;        
+      }
+    }
+    
+    Marker object_marker;
 
     if( controllable )
     {
@@ -224,8 +254,14 @@ to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory, const Offse
 {
   MarkerArray marker_array;
 
+  Color trajectory_color = colors::soft_blue;
+  if ( trajectory.label == "Follow Reference")
+  {
+    trajectory_color = colors::soft_purple;
+  }
+
   // Create the line marker for the trajectory
-  auto line_marker = primitives::create_flat_line_marker( trajectory.states, "decision", trajectory.request_id, 1.8, colors::soft_blue,
+  auto line_marker = primitives::create_flat_line_marker( trajectory.states, "decision", trajectory.request_id, 1.8, trajectory_color,
                                                           offset, frame_id );
   marker_array.markers.push_back( line_marker );
 
