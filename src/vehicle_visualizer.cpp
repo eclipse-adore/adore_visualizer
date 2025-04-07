@@ -52,8 +52,11 @@ VehicleVisualizer::VehicleVisualizer() : Node( "vehicle_visualizer_node" )
   declare_parameter( "visualize_route", false );
   get_parameter( "visualize_route", visualize_route);
 
-  declare_parameter( "visualize_planned_trajectory", false );
-  get_parameter( "visualize_planned_trajectory", visualize_planned_trajectory);
+  declare_parameter( "visualize_trajectory", false );
+  get_parameter( "visualize_trajectory", visualize_trajectory);
+
+  declare_parameter( "visualize_state", false );
+  get_parameter( "visualize_state", visualize_state);
   
   declare_parameter( "visualize_goal_point", false );
   get_parameter( "visualize_goal_point", visualize_goal_point );
@@ -76,9 +79,9 @@ void VehicleVisualizer::create_subscribers()
   subscriber_vehicle_state_dynamic = create_subscription<adore_ros2_msgs::msg::VehicleStateDynamic>(
     "vehicle_state/dynamic", 10, std::bind( &VehicleVisualizer::vehicle_state_dynamic_callback, this, std::placeholders::_1 ) );
 
-  if ( visualize_planned_trajectory )
+  if ( visualize_trajectory || visualize_state )
   {
-    subscriber_planned_trajectory = create_subscription<adore_ros2_msgs::msg::Trajectory>(
+    subscriber_trajectory = create_subscription<adore_ros2_msgs::msg::Trajectory>(
       "trajectory_decision", 10, std::bind( &VehicleVisualizer::planned_trajectory_callback, this, std::placeholders::_1 ) );
   }
 
@@ -116,9 +119,14 @@ void VehicleVisualizer::create_publishers()
     publisher_vehicle_markers = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_vehicle", 10 );
   }
 
-  if ( visualize_planned_trajectory )
+  if ( visualize_trajectory )
   {
-    publisher_planned_trajectory_markers = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_planned_trajectory", 10 );
+    publisher_trajectory_markers = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_trajectory", 10 );
+  }
+
+  if ( visualize_state )
+  {
+    publisher_state_markers = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_state", 10 );
   }
 
   if ( visualize_local_map )
@@ -166,12 +174,20 @@ void VehicleVisualizer::timer_callback()
     publisher_vehicle_markers->publish(vehicle_marker);
   }
 
-  if ( visualize_planned_trajectory && latest_planned_trajectory.has_value() )
+  if ( visualize_trajectory && latest_trajectory.has_value() )
   {
-    visualization_msgs::msg::MarkerArray planned_trajectory_marker = conversions::to_marker_array(latest_planned_trajectory.value(), visualization_offset.value(), frame_id);
-    publisher_planned_trajectory_markers->publish(planned_trajectory_marker);
+    visualization_msgs::msg::MarkerArray planned_trajectory_marker = conversions::to_marker_array(latest_trajectory.value(), visualization_offset.value(), frame_id);
+    publisher_trajectory_markers->publish(planned_trajectory_marker);
   }
 
+  if ( visualize_state && latest_trajectory.has_value() )
+  {
+    visualization_msgs::msg::MarkerArray state_marker = conversions::to_marker_array(latest_trajectory.value(), visualization_offset.value(), frame_id, 0.5);
+    publisher_state_markers ->publish( state_marker );
+    
+  }
+
+  
   if ( visualize_local_map && latest_local_map.has_value() )
   {
     visualization_msgs::msg::MarkerArray local_map_marker = conversions::to_marker_array(latest_local_map.value(), visualization_offset.value(), frame_id);
@@ -262,7 +278,7 @@ void VehicleVisualizer::publish_visualization_offset()
 
 void VehicleVisualizer::planned_trajectory_callback(const adore_ros2_msgs::msg::Trajectory& msg)
 {
-  latest_planned_trajectory = msg;
+  latest_trajectory = msg;
 }
 
 void VehicleVisualizer::goal_point_callback(const adore_ros2_msgs::msg::GoalPoint& msg)

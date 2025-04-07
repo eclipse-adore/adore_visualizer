@@ -56,6 +56,8 @@ MarkerArray to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& ms
 
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::Trajectory& set_point_request, const Offset& offset, const std::string& frame_id );
 
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::Trajectory& set_point_request, const Offset& offset, const std::string& frame_id, const double& text_size );
+
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::SafetyCorridor& safety_corridor, const Offset& offset, const std::string& frame_id );
 
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::Map& local_map, const Offset& offset, const std::string& frame_id );

@@ -56,7 +56,7 @@ private:
 
   // Subscriptions
   rclcpp::Subscription<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr subscriber_vehicle_state_dynamic;
-  rclcpp::Subscription<adore_ros2_msgs::msg::Trajectory>::SharedPtr subscriber_planned_trajectory;
+  rclcpp::Subscription<adore_ros2_msgs::msg::Trajectory>::SharedPtr subscriber_trajectory;
   rclcpp::Subscription<adore_ros2_msgs::msg::Map>::SharedPtr subscriber_local_map;
   rclcpp::Subscription<adore_ros2_msgs::msg::GoalPoint>::SharedPtr subscriber_goal_point;
   rclcpp::Subscription<adore_ros2_msgs::msg::Route>::SharedPtr subscriber_route;
@@ -64,7 +64,8 @@ private:
 
   // Publishers
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_vehicle_markers;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_planned_trajectory_markers;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_trajectory_markers;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_state_markers ;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_local_map_markers;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_goal_point_markers;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_route_markers;
@@ -74,7 +75,7 @@ private:
   // State
   std::optional<Offset> visualization_offset;
   std::optional<adore_ros2_msgs::msg::VehicleStateDynamic> latest_vehicle_state_dynamic;
-  std::optional<adore_ros2_msgs::msg::Trajectory> latest_planned_trajectory;
+  std::optional<adore_ros2_msgs::msg::Trajectory> latest_trajectory;
   std::optional<adore_ros2_msgs::msg::Map> latest_local_map;
   std::optional<adore_ros2_msgs::msg::GoalPoint> latest_goal_point;
   std::optional<adore_ros2_msgs::msg::Route> latest_route;
@@ -88,7 +89,8 @@ private:
   rclcpp::Time current_time;
   rclcpp::Time last_update_time;
   bool visualize_vehicle = false;
-  bool visualize_planned_trajectory = false;
+  bool visualize_trajectory = false;
+  bool visualize_state = false;
   bool visualize_local_map = false;
   bool visualize_goal_point = false;
   bool visualize_route = false;

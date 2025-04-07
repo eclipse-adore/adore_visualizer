@@ -147,22 +147,34 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
     double participant_width  = participant.participant_data.physical_parameters.body_width;
     double participant_height = participant.participant_data.physical_parameters.body_height;
 
-    auto participant_color = participant.participant_data.goal_point.x < 0.01 ? colors::soft_red : colors::soft_purple;
+    // auto participant_color = participant.goal_point.x < 0.01 ? colors::soft_red : colors::soft_purple;
 
     // bool controllable = false;
-    bool controllable = participant.participant_data.v2x_station_id != 0;
+    bool controllable = participant.participant_data.v2x_station_id > 0;
+    bool inside_validity_area = true;
     if ( traffic_participant_set.validity_area.has_value() )
     {
       adore::math::Point2d participant_position { participant.participant_data.motion_state.x, participant.participant_data.motion_state.y };
-      if ( controllable && traffic_participant_set.validity_area.value().point_inside(participant_position))
+      if ( !traffic_participant_set.validity_area.value().point_inside(participant_position))
       {
-        participant_color = colors::gray;        
+        inside_validity_area = false;
       }
     }
-    
-    Marker object_marker;
 
-    if( controllable )
+    auto participant_color = inside_validity_area ? colors::soft_purple : colors::soft_gray;
+    
+    Marker object_marker = primitives::create_rectangle_marker( state.x, state.y,
+                                                           participant_height / 2,                   // Z position for height
+                                                           participant_length,                       // Length
+                                                           participant_width,                        // Width
+                                                           participant_height,                       // Height (example)
+                                                           heading,                                  // Orientation
+                                                           "traffic_participant",                    // Namespace
+                                                           participant.participant_data.tracking_id, // ID
+                                                           participant_color, offset );
+
+    // if( controllable && inside_validity_area )
+    if( controllable && inside_validity_area )
     {
       object_marker                             = primitives::create_3d_object_marker( state.x, state.y,
                                                                                        0.01, // Z height
@@ -173,19 +185,7 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
       object_marker.frame_locked                = true;
       object_marker.mesh_use_embedded_materials = true;
     }
-    else
-    {
 
-      object_marker = primitives::create_rectangle_marker( state.x, state.y,
-                                                           participant_height / 2,                   // Z position for height
-                                                           participant_length,                       // Length
-                                                           participant_width,                        // Width
-                                                           participant_height,                       // Height (example)
-                                                           heading,                                  // Orientation
-                                                           "traffic_participant",                    // Namespace
-                                                           participant.participant_data.tracking_id, // ID
-                                                           participant_color, offset );
-    }
     object_marker.header.frame_id = frame_id;
 
 
@@ -265,12 +265,21 @@ to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory, const Offse
                                                           offset, frame_id );
   marker_array.markers.push_back( line_marker );
 
+
+  return marker_array;
+}
+
+MarkerArray
+to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory, const Offset& offset, const std::string& frame_id, const double& text_size )
+{
+  MarkerArray marker_array;
+  
   // Determine the position for the label
   size_t num_states = trajectory.states.size();
   if( num_states > 0 )
   {
     const auto& first_state = trajectory.states[0];
-    double      text_size   = 0.5;
+    // double      text_size   = 0.5;
     Color       text_color  = colors::blue;
     std::string ns          = "trajectory_label";
 
