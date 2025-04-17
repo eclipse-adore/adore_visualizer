@@ -17,11 +17,11 @@
 #include "adore_math/angles.h"
 #include "adore_ros2_msgs/msg/traffic_prediction.hpp"
 #include "adore_ros2_msgs/msg/vehicle_state_dynamic.hpp"
+#include <adore_ros2_msgs/msg/infrastructure_info.hpp>
 #include <adore_ros2_msgs/msg/traffic_participant_set.hpp>
 #include <adore_ros2_msgs/msg/trajectory.hpp>
 
 #include "map_image_visualization.hpp"
-#include "state_buffer.hpp"
 #include "tf2_ros/transform_broadcaster.h"
 #include "visualizer_conversions.hpp"
 #include <nav_msgs/msg/odometry.hpp>
@@ -33,109 +33,137 @@ namespace adore
 {
 namespace visualizer
 {
-
-
 class Visualizer : public rclcpp::Node
 {
 private:
 
-  // Timers & TF
-  rclcpp::TimerBase::SharedPtr                   main_timer;
-  std::unique_ptr<tf2_ros::TransformBroadcaster> visualisation_transform_broadcaster;
+  /* ---------- timing & TF -------------------------------------------------- */
+  rclcpp::TimerBase::SharedPtr high_frequency_timer;
+  rclcpp::TimerBase::SharedPtr low_frequency_timer;
 
-  // Publishers
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr                                              map_cloud_publisher;
-  std::unordered_map<std::string, rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr>      marker_publishers;
-  std::unordered_map<std::string, rclcpp::Publisher<adore_ros2_msgs::msg::TrajectoryTranspose>::SharedPtr> trajectory_publishers;
+  std::shared_ptr<tf2_ros::Buffer>               tf_buffer;
+  std::shared_ptr<tf2_ros::TransformListener>    tf_listener;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster;
+  bool                                           have_initial_offset{ false };
+  geometry_msgs::msg::TransformStamped           offset_tf;
 
-  // Subscriptions
-  rclcpp::Subscription<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr subscriber_vehicle_state_dynamic;
+  /* ---------- publishers ---------------------------------------------------- */
+  using MarkerPublishers     = std::unordered_map<std::string, rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr>;
+  using TrajectoryPublishers = std::unordered_map<std::string, rclcpp::Publisher<adore_ros2_msgs::msg::TrajectoryTranspose>::SharedPtr>;
+
+  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_grid_publisher;
+  MarkerPublishers                                           marker_publishers;
+  TrajectoryPublishers                                       trajectory_publishers;
+
+  /* ---------- subscriptions ------------------------------------------------- */
+  rclcpp::Subscription<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr state_subscription;
+  rclcpp::Subscription<adore_ros2_msgs::msg::InfrastructureInfo>::SharedPtr  infrastructure_info_subscription;
   std::unordered_map<std::string, rclcpp::SubscriptionBase::SharedPtr>       dynamic_subscriptions;
 
-  // Marker Storage
-  std::unordered_map<std::string, MarkerArray> markers_to_publish;
+  /* ---------- marker cache -------------------------------------------------- */
+  std::unordered_map<std::string, MarkerArray> marker_cache;
 
-  // State & Configuration
-  StateBuffer                                  state_buffer;
-  std::optional<dynamics::VehicleStateDynamic> latest_state;
-  Offset                                       offset;
-  std::string                                  maps_folder;
-  TileCache                                    tile_cache;
-  TileKey                                      latest_tile_index = { -1, -1 };
-  std::vector<std::string>                     whitelist;
-  std::string                                  map_image_api_key;
-  bool                                         map_image_grayscale = true;
-  std::string                                  ego_vehicle_3d_model_path;
+  /* ---------- configuration / state -------------------------------- */
+  std::optional<math::Point2d> map_center;
+  math::Point2d                offset{};
+  std::string                  maps_folder;
+  GridTileCache                grid_tile_cache;
+  TileKey                      latest_tile_idx{ -1, -1 };
+  std::vector<std::string>     whitelist;
+  std::string                  map_image_api_key;
+  bool                         map_image_grayscale{ true };
+  std::string                  ego_vehicle_3d_model_path;
+  bool                         center_ego_vehicle{ true };
 
-  // Dynamic Subscription & Publisher Updates
+  /* ---------- dynamic‑subscription helpers --------------------------------- */
   template<typename MsgT>
-  void update_dynamic_subscriptions( const std::string& expected_type );
+  void update_dynamic_subscriptions( const std::string& desired_type );
+  template<typename MsgT>
+  void create_publisher_for( const std::string& topic_name );
+  template<typename MsgT>
+  void create_subscription_for( const std::string& topic_name );
   void update_all_dynamic_subscriptions();
 
-  // Subscriber/Publisher Creation Functions
-  void create_subscribers();
+  /* ---------- initialization ----------------------------------------------- */
+  void load_parameters();
   void create_publishers();
+  void create_subscribers();
 
-  // Callback Functions
-  void vehicle_state_dynamic_callback( const adore_ros2_msgs::msg::VehicleStateDynamic& msg );
-  void timer_callback();
-  void publish_visualization_offset();
+  /* ---------- regular publishing helpers ----------------------------------- */
+  void publish_map_image();
+  void publish_markers();
+  void publish_visualization_frame();
+
+  /* ---------- callbacks ----------------------------------------------------- */
+  void vehicle_state_callback( const adore_ros2_msgs::msg::VehicleStateDynamic& msg );
+  void infrastructure_info_callback( const adore_ros2_msgs::msg::InfrastructureInfo& msg );
+  void high_frequency_timer_callback();
+  void low_frequency_timer_callback();
+
+
+  /* ---------- misc. utilities ---------------------------------------------- */
+  void change_frame( Marker& marker, const std::string& target_frame );
+  bool should_subscribe_to_topic( const std::string& topic_name, const std::string& desired_type,
+                                  const std::vector<std::string>& advertised_types ) const;
 
 public:
 
-  Visualizer();
+  explicit Visualizer();
 };
 
 template<typename MsgT>
 void
-Visualizer::update_dynamic_subscriptions( const std::string& expected_type )
+Visualizer::update_dynamic_subscriptions( const std::string& expected_msg_type )
 {
-  // get_topic_names_and_types() returns a map<string, vector<string>> of all topics and their types.
   auto topic_names_and_types = get_topic_names_and_types();
 
-  for( const auto& topic_pair : topic_names_and_types )
+  for( const auto& [topic_name, advertised_msg_types] : topic_names_and_types )
   {
-    const std::string&              topic_name = topic_pair.first;
-    const std::vector<std::string>& types      = topic_pair.second;
-
-    // Ensure the topic name contains at least one of the allowed namespace prefixes
-    bool whitelisted = std::any_of( whitelist.begin(), whitelist.end(),
-                                    [&topic_name]( const std::string& ns ) { return topic_name.find( ns ) != std::string::npos; } );
-
-    if( !whitelisted )
+    if( !should_subscribe_to_topic( topic_name, expected_msg_type, advertised_msg_types ) )
       continue;
 
-    // Check whether this topic advertises our expected type.
-    if( std::find( types.begin(), types.end(), expected_type ) != types.end() )
-    {
-      // If we haven't already subscribed to this topic, do so.
-      if( dynamic_subscriptions.find( topic_name ) == dynamic_subscriptions.end() )
-      {
-        marker_publishers[topic_name] = create_publisher<visualization_msgs::msg::MarkerArray>( "visualize_" + topic_name, 10 );
-
-        // If this is a trajectory message type, create the extra trajectory publisher.
-        if constexpr( std::is_same_v<MsgT, adore_ros2_msgs::msg::Trajectory> )
-        {
-          trajectory_publishers[topic_name] = create_publisher<adore_ros2_msgs::msg::TrajectoryTranspose>( topic_name + "_transpose", 10 );
-        }
-
-        markers_to_publish[topic_name] = MarkerArray();
-        auto subscription              = create_subscription<MsgT>( topic_name, 1, [this, topic_name]( const MsgT& msg ) {
-          // Use the standard conversion function to generate a MarkerArray.
-          markers_to_publish[topic_name] = conversions::to_marker_array( msg, offset );
-
-          if constexpr( std::is_same_v<MsgT, adore_ros2_msgs::msg::Trajectory> )
-          {
-            trajectory_publishers[topic_name]->publish( dynamics::conversions::transpose( msg ) );
-          };
-        } );
-
-        dynamic_subscriptions[topic_name] = subscription;
-        RCLCPP_INFO( get_logger(), "Dynamically subscribed to topic: %s", topic_name.c_str() );
-      }
-    }
+    create_publisher_for<MsgT>( topic_name );
+    create_subscription_for<MsgT>( topic_name );
   }
 }
+
+template<typename MsgT>
+void
+Visualizer::create_publisher_for( const std::string& topic_name )
+{
+  marker_publishers[topic_name] = create_publisher<visualization_msgs::msg::MarkerArray>( "viz" + topic_name, 10 );
+
+  if constexpr( std::is_same_v<MsgT, adore_ros2_msgs::msg::Trajectory> )
+  {
+    trajectory_publishers[topic_name] = create_publisher<adore_ros2_msgs::msg::TrajectoryTranspose>( topic_name + "_transpose", 10 );
+  }
+
+  marker_cache[topic_name] = MarkerArray();
+}
+
+template<typename MsgT>
+void
+Visualizer::create_subscription_for( const std::string& topic_name )
+{
+  auto callback = [this, topic_name]( const MsgT& msg ) {
+    auto marker_array = conversions::to_marker_array( msg );
+    for( auto& marker : marker_array.markers )
+    {
+      marker.header.frame_id = msg.header.frame_id;
+      change_frame( marker, "visualization_offset" );
+    }
+
+    marker_cache[topic_name] = marker_array;
+
+    if constexpr( std::is_same_v<MsgT, adore_ros2_msgs::msg::Trajectory> )
+    {
+      trajectory_publishers[topic_name]->publish( dynamics::conversions::transpose( msg ) );
+    }
+  };
+
+  dynamic_subscriptions[topic_name] = create_subscription<MsgT>( topic_name, 1, callback );
+}
+
 
 } // namespace visualizer
 } // namespace adore

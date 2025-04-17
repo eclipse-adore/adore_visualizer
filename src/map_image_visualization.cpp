@@ -63,10 +63,10 @@ compute_bbox_string( int map_tile_x, int map_tile_y, double tile_size, double ma
 
 // Compute the origin of the map in world coordinates.
 std::pair<double, double>
-compute_map_origin( int map_tile_x, int map_tile_y, double tile_size, double map_size, const Offset &offset )
+compute_map_origin( int map_tile_x, int map_tile_y, double tile_size, double map_size )
 {
-  double origin_x = map_tile_x * tile_size - offset.x - map_size / 2;
-  double origin_y = map_tile_y * tile_size - offset.y + map_size / 2 + tile_size;
+  double origin_x = map_tile_x * tile_size - map_size / 2;
+  double origin_y = map_tile_y * tile_size + map_size / 2 + tile_size;
   return { origin_x, origin_y };
 }
 
@@ -76,7 +76,7 @@ fetch_map_image( int map_tile_x, int map_tile_y, double tile_size, double map_si
                  const std::string &map_storage_path, bool networking_disabled, const std::string &api_key )
 {
   // Try loading the image from the local file system first.
-  auto map_image = fetch_map_image_local( map_tile_x, map_tile_y, tile_size, map_size, image_resolution, map_storage_path );
+  auto map_image = fetch_map_image_local( map_tile_x, map_tile_y, map_storage_path );
   if( map_image || networking_disabled )
   {
     return map_image;
@@ -92,8 +92,7 @@ fetch_map_image( int map_tile_x, int map_tile_y, double tile_size, double map_si
 
 // Load map image from the local file system (tries PNG then JPG)
 std::optional<cv::Mat>
-fetch_map_image_local( int map_tile_x, int map_tile_y, double tile_size, double map_size, int image_resolution,
-                       const std::string &map_storage_path )
+fetch_map_image_local( int map_tile_x, int map_tile_y, const std::string &map_storage_path )
 {
   // Construct file paths for PNG and JPG formats.
   std::string png_path = build_image_file_path( map_tile_x, map_tile_y, map_storage_path, ".png" );
@@ -186,48 +185,57 @@ fetch_map_image_open( int map_tile_x, int map_tile_y, double tile_size, double m
   return map_image;
 }
 
-// Convert a map image to an occupancy grid
-nav_msgs::msg::OccupancyGrid
-generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynamic &vehicle_state, const std::string &map_storage_path,
-                         bool networking_disabled, const std::string &api_key )
+std::pair<TileKey, nav_msgs::msg::OccupancyGrid>
+generate_occupancy_grid( double x, double y, const std::string &map_storage_path, bool networking_disabled, GridTileCache &tile_cache,
+                         const std::string &api_key )
 {
   // Configuration parameters.
-  const double tile_size        = 50; // New image generated if vehicle leaves this range.
-  const double map_size         = 50; // Visible map size.
-  const double pixels_per_meter = 5;
+  const double tile_size        = 50.0; // If the vehicle leaves this tile, we'll load a new image
+  const double map_size         = 50.0; // Extra margin around the tile
+  const double pixels_per_meter = 5.0;
   const int    image_pixels     = static_cast<int>( ( tile_size + map_size ) * pixels_per_meter );
 
-  nav_msgs::msg::OccupancyGrid occupancy_grid_msg;
+  // Determine the current map tile based on the vehicle position
+  const int map_tile_x = static_cast<int>( std::floor( x / tile_size ) );
+  const int map_tile_y = static_cast<int>( std::floor( y / tile_size ) );
+  TileKey   tile_index = { map_tile_x, map_tile_y };
 
-  // Determine the current map tile based on vehicle position.
-  const int map_tile_x = std::floor( vehicle_state.x / tile_size );
-  const int map_tile_y = std::floor( vehicle_state.y / tile_size );
-
-  // Fetch or download the map image for the current tile.
-  auto map_image = fetch_map_image( map_tile_x, map_tile_y, tile_size, map_size, image_pixels, map_storage_path, networking_disabled,
-                                    api_key );
-  if( !map_image )
+  // 1. Check the cache first
+  if( tile_cache.find( tile_index ) != tile_cache.end() )
   {
-    return occupancy_grid_msg;
+    // Already have this tile loaded
+    return { tile_index, tile_cache[tile_index] };
   }
 
-  // Convert the image to grayscale for processing.
+  // 2. Otherwise, fetch or generate the occupancy grid
+  nav_msgs::msg::OccupancyGrid occupancy_grid_msg;
+
+  // Attempt to fetch the corresponding map image
+  auto map_image = fetch_map_image( map_tile_x, map_tile_y, tile_size, map_size, image_pixels, map_storage_path, networking_disabled,
+                                    api_key );
+
+  // If fetch fails, just return an empty occupancy grid
+  if( !map_image )
+  {
+    return { tile_index, occupancy_grid_msg }; // This OccupancyGrid will be empty
+  }
+
+  // Convert to grayscale
   cv::Mat grayscale_image;
   cv::cvtColor( map_image.value(), grayscale_image, cv::COLOR_BGR2GRAY );
 
-  // Set up occupancy grid metadata.
-  occupancy_grid_msg.header.frame_id = "visualization_offset";
+  // Configure occupancy grid metadata
+  occupancy_grid_msg.header.frame_id = "world"; // Or whatever your global frame is
   occupancy_grid_msg.info.resolution = 1.0 / pixels_per_meter;
   occupancy_grid_msg.info.width      = grayscale_image.cols;
   occupancy_grid_msg.info.height     = grayscale_image.rows;
 
-  // Compute the map origin.
-  auto [map_origin_x, map_origin_y]         = compute_map_origin( map_tile_x, map_tile_y, tile_size, map_size, offset );
+  // Compute the origin so it aligns with how you map from tile coords to world
+  auto [map_origin_x, map_origin_y]         = compute_map_origin( map_tile_x, map_tile_y, tile_size, map_size );
   occupancy_grid_msg.info.origin.position.x = map_origin_x;
   occupancy_grid_msg.info.origin.position.y = map_origin_y;
-  occupancy_grid_msg.info.origin.position.z = -0.8;
+  occupancy_grid_msg.info.origin.position.z = -0.05;
 
-  // Rotate the map 180 degrees.
   tf2::Quaternion orientation;
   orientation.setRPY( 3.14, 0, 0 );
   occupancy_grid_msg.info.origin.orientation.x = orientation.x();
@@ -235,24 +243,30 @@ generate_occupancy_grid( const Offset &offset, const dynamics::VehicleStateDynam
   occupancy_grid_msg.info.origin.orientation.z = orientation.z();
   occupancy_grid_msg.info.origin.orientation.w = orientation.w();
 
-  // Populate the occupancy grid by scaling grayscale values (0-255) to occupancy (0-100).
+  // Fill occupancy data (0 - 100)
   occupancy_grid_msg.data.reserve( occupancy_grid_msg.info.width * occupancy_grid_msg.info.height );
+
   for( int row = 0; row < grayscale_image.rows; ++row )
   {
     for( int col = 0; col < grayscale_image.cols; ++col )
     {
-      int occupancy_value = ( grayscale_image.at<uchar>( row, col ) * 100 ) / 255;
-      occupancy_grid_msg.data.push_back( 100 - occupancy_value );
+      int pixel_value = static_cast<int>( grayscale_image.at<uchar>( row, col ) );
+      int occupancy   = ( ( pixel_value * 100 ) / 255 );
+      occupancy_grid_msg.data.push_back( static_cast<int8_t>( occupancy ) );
     }
   }
 
-  return occupancy_grid_msg;
+  // 3. Cache the newly generated occupancy grid
+  tile_cache[tile_index] = occupancy_grid_msg;
+
+  // 4. Return the tile_key and the occupancy grid
+  return { tile_index, occupancy_grid_msg };
 }
 
 // Generate a PointCloud2 message from a map image and cache it by tile index
 std::pair<TileKey, sensor_msgs::msg::PointCloud2>
-generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic &vehicle_state, const std::string &map_storage_path,
-                      bool networking_disabled, TileCache &tile_cache, const std::string &api_key, bool grayscale )
+generate_pointcloud2( double x, double y, const std::string &map_storage_path, bool networking_disabled, CloudTileCache &tile_cache,
+                      const std::string &api_key, bool grayscale )
 {
   // Configuration parameters.
   const double magenta_correction_factor = 0.0;
@@ -262,8 +276,8 @@ generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic 
   const int    image_pixels              = static_cast<int>( ( tile_size + map_size ) * pixels_per_meter );
 
   // Determine the current map tile.
-  const int map_tile_x = std::floor( vehicle_state.x / tile_size );
-  const int map_tile_y = std::floor( vehicle_state.y / tile_size );
+  const int map_tile_x = std::floor( x / tile_size );
+  const int map_tile_y = std::floor( y / tile_size );
   TileKey   tile_index = { map_tile_x, map_tile_y };
 
   // Return cached PointCloud2 if available.
@@ -273,7 +287,7 @@ generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic 
   }
 
   sensor_msgs::msg::PointCloud2 cloud_msg;
-  cloud_msg.header.frame_id = "visualization_offset";
+  cloud_msg.header.frame_id = "world";
   cloud_msg.header.stamp    = rclcpp::Clock().now();
 
   // Fetch or download the map image.
@@ -294,7 +308,7 @@ generate_pointcloud2( const Offset &offset, const dynamics::VehicleStateDynamic 
                                  sensor_msgs::msg::PointField::FLOAT32, "rgb", 1, sensor_msgs::msg::PointField::FLOAT32 );
 
   // Compute the map origin.
-  auto [map_origin_x, map_origin_y] = compute_map_origin( map_tile_x, map_tile_y, tile_size, map_size, offset );
+  auto [map_origin_x, map_origin_y] = compute_map_origin( map_tile_x, map_tile_y, tile_size, map_size );
 
   // Prepare iterators for point data.
   sensor_msgs::PointCloud2Iterator<float>   iter_x( cloud_msg, "x" );

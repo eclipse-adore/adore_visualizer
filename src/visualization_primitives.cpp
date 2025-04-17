@@ -23,21 +23,22 @@ namespace visualizer
 {
 namespace primitives
 {
+
+
 // Helper to create a rectangle (or cube) marker
 Marker
 create_rectangle_marker( double x, double y, double z, double length, double width, double height, double heading, const std::string& ns,
-                         int id, const Color& color, const Offset& offset )
+                         int id, const Color& color )
 {
   Marker marker;
-  marker.header.frame_id = "visualization_offset";
-  marker.ns              = ns;
-  marker.id              = id;
-  marker.type            = Marker::CUBE;
-  marker.action          = Marker::ADD;
+  marker.ns     = ns;
+  marker.id     = id;
+  marker.type   = Marker::CUBE;
+  marker.action = Marker::ADD;
 
   // Set the position
-  marker.pose.position.x = x - offset.x;
-  marker.pose.position.y = y - offset.y;
+  marker.pose.position.x = x;
+  marker.pose.position.y = y;
   marker.pose.position.z = z;
 
   // Set the orientation
@@ -64,18 +65,17 @@ create_rectangle_marker( double x, double y, double z, double length, double wid
 
 // Helper to create a sphere marker
 Marker
-create_sphere_marker( double x, double y, double z, double scale, const std::string& ns, int id, const Color& color, const Offset& offset )
+create_sphere_marker( double x, double y, double z, double scale, const std::string& ns, int id, const Color& color )
 {
   Marker marker;
-  marker.header.frame_id = "visualization_offset";
-  marker.ns              = ns;
-  marker.id              = id;
-  marker.type            = Marker::SPHERE;
-  marker.action          = Marker::ADD;
+  marker.ns     = ns;
+  marker.id     = id;
+  marker.type   = Marker::SPHERE;
+  marker.action = Marker::ADD;
 
   // Set the position
-  marker.pose.position.x = x - offset.x;
-  marker.pose.position.y = y - offset.y;
+  marker.pose.position.x = x;
+  marker.pose.position.y = y;
   marker.pose.position.z = z;
 
   // Set the scale
@@ -93,14 +93,14 @@ create_sphere_marker( double x, double y, double z, double scale, const std::str
 }
 
 MarkerArray
-create_finish_line_marker( double x, double y, double square_size, const Offset& offset )
+create_finish_line_marker( double x, double y, double square_size )
 {
   MarkerArray marker_array;
 
   int    grid_rows = 4; // Number of rows in the flag
   int    grid_cols = 4; // Number of columns in the flag
-  double offset_x  = x - offset.x;
-  double offset_y  = y - offset.y;
+  double offset_x  = x;
+  double offset_y  = y;
 
   // Loop through rows and columns to create the checkered pattern
   for( int row = 0; row < grid_rows; ++row )
@@ -108,11 +108,10 @@ create_finish_line_marker( double x, double y, double square_size, const Offset&
     for( int col = 0; col < grid_cols; ++col )
     {
       Marker marker;
-      marker.header.frame_id = "visualization_offset";
-      marker.ns              = "finish_line";
-      marker.id              = row * grid_cols + col;
-      marker.type            = Marker::CUBE;
-      marker.action          = Marker::ADD;
+      marker.ns     = "finish_line";
+      marker.id     = row * grid_cols + col;
+      marker.type   = Marker::CUBE;
+      marker.action = Marker::ADD;
 
       // Set position for each square in the grid
       marker.pose.position.x    = offset_x + col * square_size;
@@ -151,18 +150,17 @@ create_finish_line_marker( double x, double y, double square_size, const Offset&
 
 Marker
 create_3d_object_marker( double x, double y, double z, double scale, double heading, const std::string& ns, int id, const Color& color,
-                         const std::string& file_name, const Offset& offset )
+                         const std::string& file_name )
 {
   Marker marker;
-  marker.header.frame_id = "visualization_offset";
-  marker.ns              = ns;
-  marker.id              = id;
-  marker.type            = Marker::MESH_RESOURCE;
-  marker.action          = Marker::ADD;
+  marker.ns     = ns;
+  marker.id     = id;
+  marker.type   = Marker::MESH_RESOURCE;
+  marker.action = Marker::ADD;
 
   // Set the position
-  marker.pose.position.x = x - offset.x;
-  marker.pose.position.y = y - offset.y;
+  marker.pose.position.x = x;
+  marker.pose.position.y = y;
   marker.pose.position.z = z;
 
   // Set the orientation
@@ -191,98 +189,64 @@ create_3d_object_marker( double x, double y, double z, double scale, double head
 }
 
 MarkerArray
-create_text_marker( double x, double y, const std::string& text, double size, const Color& color, const std::string& ns,
-                    const Offset& offset, double rotation )
+create_text_marker( double x, double y, const std::string& text, double size, const Color& color, const std::string& ns )
 {
   MarkerArray marker_array;
 
-  // Dimensions and spacing
-  double pixel_size   = size / 5.0; // Size of each pixel
-  double char_spacing = size * 1.2;
+  Marker marker;
+  marker.header.frame_id = "world";
+  marker.ns              = ns;
+  marker.id              = 0;
+  marker.type            = Marker::TEXT_VIEW_FACING;
+  marker.action          = Marker::ADD;
 
-  int    marker_id        = 0;
-  double current_x_offset = 0.0;
+  marker.pose.position.x = x;
+  marker.pose.position.y = y;
+  marker.pose.position.z = 1.0;
 
-  // Precompute sin and cos of rotation angle
-  double cos_rotation = std::cos( rotation );
-  double sin_rotation = std::sin( rotation );
+  marker.scale.z = size;
 
-  for( char c : text )
-  {
-    // Get the bitmap for the character
-    std::array<uint8_t, 7> bitmap          = { 0 };
-    bool                   character_found = false;
-    for( const auto& [key, value] : CHARACTER_MAP )
-    {
-      if( key == toupper( c ) )
-      {
-        bitmap          = value;
-        character_found = true;
-        break;
-      }
-    }
-    if( !character_found )
-    {
-      current_x_offset += char_spacing; // Skip unrecognized characters
-      continue;
-    }
+  marker.color.r = color[0];
+  marker.color.g = color[1];
+  marker.color.b = color[2];
+  marker.color.a = color[3];
 
-    // Loop through the 5x7 grid
-    for( int row = 0; row < 7; ++row )
-    {
-      uint8_t row_bits = bitmap[row];
-      for( int col = 0; col < 5; ++col )
-      {
-        if( row_bits & ( 1 << ( 4 - col ) ) ) // Check if the pixel is lit
-        {
-          Marker pixel_marker;
-          pixel_marker.header.frame_id = "visualization_offset";
-          pixel_marker.ns              = ns;
-          pixel_marker.id              = marker_id++;
-          pixel_marker.type            = Marker::CUBE;
-          pixel_marker.action          = Marker::ADD;
+  marker.text = text;
 
-          // Original position relative to text origin
-          double original_x = current_x_offset + col * pixel_size;
-          double original_y = ( 6 - row ) * pixel_size;
+  marker.frame_locked = true;
 
-          // Apply rotation around text origin
-          double rotated_x = original_x * cos_rotation - original_y * sin_rotation;
-          double rotated_y = original_x * sin_rotation + original_y * cos_rotation;
-
-          // Set position for each pixel
-          pixel_marker.pose.position.x = x - offset.x + rotated_x;
-          pixel_marker.pose.position.y = y - offset.y + rotated_y;
-          pixel_marker.pose.position.z = 0.0;
-
-          // Set orientation (no rotation needed for individual pixels)
-          pixel_marker.pose.orientation.x = 0.0;
-          pixel_marker.pose.orientation.y = 0.0;
-          pixel_marker.pose.orientation.z = 0.0;
-          pixel_marker.pose.orientation.w = 1.0;
-
-          // Set the scale (size of each pixel)
-          pixel_marker.scale.x = pixel_size;
-          pixel_marker.scale.y = pixel_size;
-          pixel_marker.scale.z = 0.01; // Thin pixel for a 2D look
-
-          // Set the color
-          pixel_marker.color.r = color[0];
-          pixel_marker.color.g = color[1];
-          pixel_marker.color.b = color[2];
-          pixel_marker.color.a = color[3];
-
-          // Add the marker to the marker array
-          marker_array.markers.push_back( pixel_marker );
-        }
-      }
-    }
-
-    // Advance current_x_offset for the next character
-    current_x_offset += char_spacing;
-  }
-
+  marker_array.markers.push_back( marker );
   return marker_array;
+}
+
+void
+transform_marker( Marker& marker, const geometry_msgs::msg::TransformStamped& transform )
+{
+  if( marker.type == visualization_msgs::msg::Marker::LINE_STRIP || marker.type == visualization_msgs::msg::Marker::LINE_LIST
+      || marker.type == visualization_msgs::msg::Marker::POINTS || marker.type == visualization_msgs::msg::Marker::SPHERE_LIST
+      || marker.type == visualization_msgs::msg::Marker::CUBE_LIST || marker.type == Marker::TRIANGLE_LIST )
+  {
+    for( auto& point : marker.points )
+    {
+      geometry_msgs::msg::PointStamped in_pt, out_pt;
+      in_pt.header = marker.header;
+      in_pt.point  = point;
+
+      tf2::doTransform( in_pt, out_pt, transform );
+      point = out_pt.point; // Now 'point' is in the new_frame_id coords
+    }
+  }
+  else
+  {
+
+    geometry_msgs::msg::PoseStamped pose_in, pose_out;
+    pose_in.header = marker.header;
+    pose_in.pose   = marker.pose;
+
+    tf2::doTransform( pose_in, pose_out, transform );
+
+    marker.pose = pose_out.pose;
+  }
 }
 
 

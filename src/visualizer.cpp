@@ -21,8 +21,15 @@ namespace visualizer
 {
 
 Visualizer::Visualizer() :
-  Node( "visualizer_node" ),
-  state_buffer( 10.0 )
+  Node( "visualizer_node" )
+{
+  load_parameters();
+  create_publishers();
+  create_subscribers();
+}
+
+void
+Visualizer::load_parameters()
 {
   declare_parameter( "asset folder", "" );
   get_parameter( "asset folder", maps_folder );
@@ -39,23 +46,16 @@ Visualizer::Visualizer() :
   declare_parameter( "map_image_grayscale", true );
   get_parameter( "map_image_grayscale", map_image_grayscale );
 
-  declare_parameter( "visualization_offset_x", 606456.0 );
-  declare_parameter( "visualization_offset_y", 5797319.0 );
-  get_parameter( "visualization_offset_x", offset.x );
-  get_parameter( "visualization_offset_y", offset.y );
-
-
-  create_publishers();
-  create_subscribers();
+  declare_parameter( "center_ego_vehicle", true );
+  get_parameter( "center_ego_vehicle", center_ego_vehicle );
 }
 
 void
 Visualizer::create_publishers()
 {
-  visualisation_transform_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>( this );
-  map_cloud_publisher                 = create_publisher<sensor_msgs::msg::PointCloud2>( "map_cloud", 1 );
-  marker_publishers["driven_path"]    = create_publisher<visualization_msgs::msg::MarkerArray>( "visualize_driven_path", 1 );
-  marker_publishers["ego_vehicle"]    = create_publisher<visualization_msgs::msg::MarkerArray>( "visualize_ego_vehicle", 1 );
+  tf_broadcaster                   = std::make_shared<tf2_ros::TransformBroadcaster>( this );
+  map_grid_publisher               = create_publisher<nav_msgs::msg::OccupancyGrid>( "map_grid", 1 );
+  marker_publishers["ego_vehicle"] = create_publisher<visualization_msgs::msg::MarkerArray>( "visualize_ego_vehicle", 1 );
 }
 
 void
@@ -76,85 +76,148 @@ Visualizer::update_all_dynamic_subscriptions()
 void
 Visualizer::create_subscribers()
 {
-  subscriber_vehicle_state_dynamic = create_subscription<adore_ros2_msgs::msg::VehicleStateDynamic>(
-    "vehicle_state/dynamic", 1, std::bind( &Visualizer::vehicle_state_dynamic_callback, this, std::placeholders::_1 ) );
+  tf_buffer   = std::make_shared<tf2_ros::Buffer>( this->get_clock() );
+  tf_listener = std::make_shared<tf2_ros::TransformListener>( *tf_buffer, this );
 
+  state_subscription = create_subscription<adore_ros2_msgs::msg::VehicleStateDynamic>( "vehicle_state/dynamic", 1,
+                                                                                       std::bind( &Visualizer::vehicle_state_callback, this,
+                                                                                                  std::placeholders::_1 ) );
+
+  infrastructure_info_subscription = create_subscription<adore_ros2_msgs::msg::InfrastructureInfo>(
+    "infrastructure_info", 1, std::bind( &Visualizer::infrastructure_info_callback, this, std::placeholders::_1 ) );
+
+  high_frequency_timer = create_wall_timer( 100ms, std::bind( &Visualizer::high_frequency_timer_callback, this ) );
+  low_frequency_timer  = create_wall_timer( 1000ms, std::bind( &Visualizer::low_frequency_timer_callback, this ) );
   update_all_dynamic_subscriptions();
-
-  main_timer = create_wall_timer( 100ms, std::bind( &Visualizer::timer_callback, this ) );
 }
 
 void
-Visualizer::timer_callback()
+Visualizer::high_frequency_timer_callback()
 {
-  for( const auto& [name, marker] : markers_to_publish )
+  publish_markers();
+  if( !map_center )
+    return;
+  publish_visualization_frame();
+}
+
+void
+Visualizer::low_frequency_timer_callback()
+{
+  update_all_dynamic_subscriptions();
+  if( !map_center )
+    return;
+  publish_map_image();
+}
+
+void
+Visualizer::publish_visualization_frame()
+{
+  // initialize visualization transform
+  if( !have_initial_offset )
+  {
+    have_initial_offset               = true;
+    offset_tf.header.frame_id         = "world";
+    offset_tf.child_frame_id          = "visualization_offset";
+    offset_tf.header.stamp            = now();
+    offset_tf.transform.translation.x = map_center->x;
+    offset_tf.transform.translation.y = map_center->y;
+    offset_tf.transform.translation.z = 0.0;
+  }
+  // Publish the offset transform
+  tf_broadcaster->sendTransform( offset_tf );
+}
+
+void
+Visualizer::publish_markers()
+{
+  for( const auto& [name, marker] : marker_cache )
   {
     if( marker_publishers.find( name ) != marker_publishers.end() )
     {
       marker_publishers[name]->publish( marker );
     }
   }
+}
 
-  update_all_dynamic_subscriptions();
+bool
+Visualizer::should_subscribe_to_topic( const std::string& candidate_topic_name, const std::string& expected_msg_type,
+                                       const std::vector<std::string>& advertised_msg_types ) const
+{
+  // Skip if this topic isn't whitelisted
+  // A topic is whitelisted if it contains at least one of the allowed namespace prefixes
+  if( !std::any_of( whitelist.begin(), whitelist.end(),
+                    [&candidate_topic_name]( const std::string& ns ) { return candidate_topic_name.find( ns ) != std::string::npos; } ) )
+    return false;
 
-  if( !latest_state )
-    return;
+  // Skip if this topic doesn't advertise the type we're interested in
+  if( std::find( advertised_msg_types.begin(), advertised_msg_types.end(), expected_msg_type ) == advertised_msg_types.end() )
+    return false;
 
-  // Generate or retrieve cached PointCloud2
-  auto index_and_tile = map_image::generate_pointcloud2( offset, *latest_state, maps_folder, false, tile_cache, map_image_api_key );
+  // Skip if we've already subscribed to this topic
+  if( dynamic_subscriptions.find( candidate_topic_name ) != dynamic_subscriptions.end() )
+    return false;
 
-  if( latest_tile_index != index_and_tile.first && map_cloud_publisher->get_subscription_count() > 0
-      && index_and_tile.second.data.size() > 0 )
+  return true;
+}
+
+void
+Visualizer::vehicle_state_callback( const adore_ros2_msgs::msg::VehicleStateDynamic& msg )
+{
+  if( center_ego_vehicle )
   {
-    latest_tile_index = index_and_tile.first;
-    map_cloud_publisher->publish( index_and_tile.second );
+    // Add the latest odometry message to the buffer with its timestamp
+    auto latest_state = dynamics::conversions::to_cpp_type( msg );
+    map_center        = { latest_state.x, latest_state.y };
+  }
+
+  // Convert the message to MarkerArray
+  auto ego_marker_array                     = conversions::to_marker_array( msg );
+  ego_marker_array.markers[0].mesh_resource = "http://localhost:8080/assets/3d_models/" + ego_vehicle_3d_model_path;
+
+  // Publish the MarkerArray
+  marker_cache["ego_vehicle"] = ego_marker_array;
+}
+
+void
+Visualizer::infrastructure_info_callback( const adore_ros2_msgs::msg::InfrastructureInfo& msg )
+{
+  if( !center_ego_vehicle )
+  {
+    map_center = { msg.position_x, msg.position_y };
   }
 }
 
 void
-Visualizer::vehicle_state_dynamic_callback( const adore_ros2_msgs::msg::VehicleStateDynamic& msg )
+Visualizer::publish_map_image()
 {
-  // Add the latest odometry message to the buffer with its timestamp
-  latest_state = dynamics::conversions::to_cpp_type( msg );
-  state_buffer.add( msg );
+  if( !map_center )
+    return;
 
-  // Convert the buffer to a marker array representing the driven path
-  auto driven_path_array            = conversions::to_marker_array( state_buffer, offset );
-  markers_to_publish["driven_path"] = driven_path_array;
+  // Generate or retrieve cached PointCloud2
+  auto index_and_tile = map_image::generate_occupancy_grid( map_center->x, map_center->y, maps_folder, false, grid_tile_cache,
+                                                            map_image_api_key );
 
-  // Convert the message to MarkerArray
-  auto ego_marker_array                     = conversions::to_marker_array( msg, offset );
-  ego_marker_array.markers[0].mesh_resource = "http://localhost:8080/assets/3d_models/" + ego_vehicle_3d_model_path;
-
-
-  // Publish the MarkerArray
-  markers_to_publish["ego_vehicle"] = ego_marker_array;
-
-  publish_visualization_offset();
+  if( latest_tile_idx != index_and_tile.first && map_grid_publisher->get_subscription_count() > 0 && index_and_tile.second.data.size() > 0 )
+  {
+    latest_tile_idx = index_and_tile.first;
+    map_grid_publisher->publish( index_and_tile.second );
+  }
 }
 
 void
-Visualizer::publish_visualization_offset()
+Visualizer::change_frame( visualization_msgs::msg::Marker& marker, const std::string& new_frame_id )
 {
-
-  geometry_msgs::msg::TransformStamped viz_transform;
-
-  viz_transform.header.stamp    = this->get_clock()->now();
-  viz_transform.header.frame_id = "world";
-  viz_transform.child_frame_id  = "visualization_offset";
-
-  viz_transform.transform.translation.x = offset.x;
-  viz_transform.transform.translation.y = offset.y;
-  viz_transform.transform.translation.z = 0;
-
-  tf2::Quaternion q;
-  q.setRPY( 0, 0, 0 );
-  viz_transform.transform.rotation.x = q.x();
-  viz_transform.transform.rotation.y = q.y();
-  viz_transform.transform.rotation.z = q.z();
-  viz_transform.transform.rotation.w = q.w();
-
-  visualisation_transform_broadcaster->sendTransform( viz_transform );
+  try
+  {
+    geometry_msgs::msg::TransformStamped transform = tf_buffer->lookupTransform( new_frame_id, marker.header.frame_id, tf2::TimePointZero );
+    primitives::transform_marker( marker, transform );
+  }
+  catch( const tf2::TransformException& ex )
+  {
+    RCLCPP_WARN( get_logger(), "Could not transform marker to new frame: %s", ex.what() );
+    return;
+  }
+  marker.header.frame_id = new_frame_id;
 }
 
 } // namespace visualizer
