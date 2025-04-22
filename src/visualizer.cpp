@@ -95,7 +95,7 @@ void
 Visualizer::high_frequency_timer_callback()
 {
   publish_markers();
-  if( !map_center )
+  if( !visualization_offset_center )
     return;
   publish_visualization_frame();
 }
@@ -104,7 +104,7 @@ void
 Visualizer::low_frequency_timer_callback()
 {
   update_all_dynamic_subscriptions();
-  if( !map_center )
+  if( !visualization_offset_center )
     return;
   publish_map_image();
 }
@@ -119,8 +119,8 @@ Visualizer::publish_visualization_frame()
     offset_tf.header.frame_id         = "world";
     offset_tf.child_frame_id          = "visualization_offset";
     offset_tf.header.stamp            = now();
-    offset_tf.transform.translation.x = map_center->x;
-    offset_tf.transform.translation.y = map_center->y;
+    offset_tf.transform.translation.x = visualization_offset_center->x;
+    offset_tf.transform.translation.y = visualization_offset_center->y;
     offset_tf.transform.translation.z = 0.0;
   }
   // Publish the offset transform
@@ -166,8 +166,8 @@ Visualizer::vehicle_state_callback( const adore_ros2_msgs::msg::VehicleStateDyna
   if( center_ego_vehicle )
   {
     // Add the latest odometry message to the buffer with its timestamp
-    auto latest_state = dynamics::conversions::to_cpp_type( msg );
-    map_center        = { latest_state.x, latest_state.y };
+    auto latest_state           = dynamics::conversions::to_cpp_type( msg );
+    visualization_offset_center = { latest_state.x, latest_state.y };
   }
 
   // Convert the message to MarkerArray
@@ -183,19 +183,19 @@ Visualizer::infrastructure_info_callback( const adore_ros2_msgs::msg::Infrastruc
 {
   if( !center_ego_vehicle )
   {
-    map_center = { msg.position_x, msg.position_y };
+    visualization_offset_center = { msg.position_x, msg.position_y };
   }
 }
 
 void
 Visualizer::publish_map_image()
 {
-  if( !map_center )
+  if( !visualization_offset_center )
     return;
 
   // Generate or retrieve cached PointCloud2
-  auto index_and_tile = map_image::generate_occupancy_grid( map_center->x, map_center->y, maps_folder, false, grid_tile_cache,
-                                                            map_image_api_key );
+  auto index_and_tile = map_image::generate_occupancy_grid( visualization_offset_center->x, visualization_offset_center->y, maps_folder,
+                                                            false, grid_tile_cache, map_image_api_key );
 
   if( latest_tile_idx != index_and_tile.first && map_grid_publisher->get_subscription_count() > 0 && index_and_tile.second.data.size() > 0 )
   {

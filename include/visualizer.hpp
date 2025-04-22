@@ -64,7 +64,7 @@ private:
   std::unordered_map<std::string, MarkerArray> marker_cache;
 
   /* ---------- configuration / state -------------------------------- */
-  std::optional<math::Point2d> map_center;
+  std::optional<math::Point2d> visualization_offset_center;
   math::Point2d                offset{};
   std::string                  maps_folder;
   GridTileCache                grid_tile_cache;
@@ -146,6 +146,11 @@ void
 Visualizer::create_subscription_for( const std::string& topic_name )
 {
   auto callback = [this, topic_name]( const MsgT& msg ) {
+    // Skip conversion if nobody is subscribed to the marker topic
+    const auto& pub_it = marker_publishers.find( topic_name );
+    if( pub_it == marker_publishers.end() || pub_it->second->get_subscription_count() == 0 )
+      return;
+
     auto marker_array = conversions::to_marker_array( msg );
     for( auto& marker : marker_array.markers )
     {
@@ -163,7 +168,6 @@ Visualizer::create_subscription_for( const std::string& topic_name )
 
   dynamic_subscriptions[topic_name] = create_subscription<MsgT>( topic_name, 1, callback );
 }
-
 
 } // namespace visualizer
 } // namespace adore
