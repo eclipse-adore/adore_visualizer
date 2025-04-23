@@ -15,6 +15,8 @@
 #include "vehicle_visualizer.hpp"
 #include <adore_math/point.h>
 #include <adore_dynamics_conversions.hpp>
+#include <dynamics/traffic_participant.hpp>
+#include <dynamics/trajectory.hpp>
 #include <dynamics/vehicle_state.hpp>
 #include "adore_ros2_msgs/msg/goal_point.hpp"
 #include "adore_ros2_msgs/msg/route.hpp"
@@ -67,6 +69,9 @@ VehicleVisualizer::VehicleVisualizer() : Node( "vehicle_visualizer_node" )
   declare_parameter( "visualize_traffic_participants", false );
   get_parameter( "visualize_traffic_participants", visualize_traffic_participants);
 
+  declare_parameter( "visualize_traffic_participants_predicted_trajectories", false );
+  get_parameter( "visualize_traffic_participants_predicted_trajectories", visualize_traffic_participants_predicted_trajectories);
+
   declare_parameter( "visualize_ignored_traffic_participants", false );
   get_parameter( "visualize_ignored_traffic_participants", visualize_ignored_traffic_participants);
 
@@ -110,6 +115,11 @@ void VehicleVisualizer::create_subscribers()
   {
     subscriber_traffic_participants = create_subscription<adore_ros2_msgs::msg::TrafficParticipantSet>(
       "traffic_participants", 10, std::bind( &VehicleVisualizer::traffic_participant_set_callback, this, std::placeholders::_1 ) );
+  }
+  if ( visualize_traffic_participants_predicted_trajectories )
+  {
+    subscriber_traffic_participants_predicted_trajectories = create_subscription<adore_ros2_msgs::msg::TrafficParticipantSet>(
+      "traffic_prediction", 10, std::bind( &VehicleVisualizer::traffic_participant_set_with_predictions_callback, this, std::placeholders::_1 ) );
   }
 
   if ( visualize_ignored_traffic_participants )
@@ -161,6 +171,11 @@ void VehicleVisualizer::create_publishers()
   if ( visualize_ignored_traffic_participants )
   {
     publisher_ignored_traffic_participant_markers = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_ignored_traffic_participants", 10 );
+  }
+
+  if (visualize_traffic_participants_predicted_trajectories )
+  {
+    publisher_traffic_participant_predicted_trajectories = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_traffic_participant_predicted_trajectories", 10 );
   }
 
   if ( visualize_map_image )
@@ -231,6 +246,28 @@ void VehicleVisualizer::timer_callback()
   {
     visualization_msgs::msg::MarkerArray traffic_participant_set_marker = conversions::to_marker_array(latest_ignored_traffic_participant_set.value(), visualization_offset.value(), frame_id);
     publisher_ignored_traffic_participant_markers->publish(traffic_participant_set_marker);
+  }
+
+  if ( visualize_traffic_participants_predicted_trajectories && latest_traffic_participants_set_with_predictions.has_value() )
+  {
+    visualization_msgs::msg::MarkerArray traffic_participant_predicted_trajectories_markers;
+    
+    dynamics::TrafficParticipantSet tps = dynamics::conversions::to_cpp_type( latest_traffic_participants_set_with_predictions.value() );
+    
+    for (const auto& [id, participant] : tps.participants )
+    {
+      if ( !participant.trajectory.has_value() )
+        continue;
+
+      adore_ros2_msgs::msg::Trajectory participant_trajectory = dynamics::conversions::to_ros_msg( participant.trajectory.value() );
+      visualization_msgs::msg::MarkerArray trajectory_markers = conversions::to_marker_array( participant_trajectory, visualization_offset.value(), frame_id);
+
+      for ( const auto& trajectory_points : trajectory_markers.markers )
+      {
+        traffic_participant_predicted_trajectories_markers.markers.push_back(trajectory_points);
+      }
+    }
+    publisher_traffic_participant_predicted_trajectories->publish( traffic_participant_predicted_trajectories_markers );
   }
     
   if ( visualize_map_image )
@@ -314,6 +351,11 @@ void VehicleVisualizer::route_callback(const adore_ros2_msgs::msg::Route& msg)
 void VehicleVisualizer::traffic_participant_set_callback(const adore_ros2_msgs::msg::TrafficParticipantSet& msg)
 {
   latest_traffic_participant_set = msg;
+}
+
+void VehicleVisualizer::traffic_participant_set_with_predictions_callback(const adore_ros2_msgs::msg::TrafficParticipantSet& msg)
+{
+  latest_traffic_participants_set_with_predictions = msg;
 }
 
 void VehicleVisualizer::ignored_traffic_participant_set_callback(const adore_ros2_msgs::msg::TrafficParticipantSet& msg)

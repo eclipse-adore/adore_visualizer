@@ -62,6 +62,7 @@ private:
   rclcpp::Subscription<adore_ros2_msgs::msg::Route>::SharedPtr subscriber_route;
   rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr subscriber_traffic_participants;
   rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr subscriber_ignored_traffic_participants;
+  rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr subscriber_traffic_participants_predicted_trajectories;
 
   // Publishers
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_vehicle_markers;
@@ -72,6 +73,7 @@ private:
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_route_markers;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_traffic_participant_markers;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_ignored_traffic_participant_markers;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_traffic_participant_predicted_trajectories;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_map_cloud;
  
   // State
@@ -83,6 +85,7 @@ private:
   std::optional<adore_ros2_msgs::msg::Route> latest_route;
   std::optional<adore_ros2_msgs::msg::TrafficParticipantSet> latest_traffic_participant_set;
   std::optional<adore_ros2_msgs::msg::TrafficParticipantSet> latest_ignored_traffic_participant_set;
+  std::optional<adore_ros2_msgs::msg::TrafficParticipantSet> latest_traffic_participants_set_with_predictions;
 
   std::string maps_folder;
   TileCache tile_cache;
@@ -99,6 +102,7 @@ private:
   bool visualize_route = false;
   bool visualize_map_image = false;
   bool visualize_traffic_participants = false;
+  bool visualize_traffic_participants_predicted_trajectories = false;
   bool visualize_ignored_traffic_participants = false;
 
   // callback functions
@@ -111,6 +115,7 @@ private:
   void traffic_participant_set_callback(const adore_ros2_msgs::msg::TrafficParticipantSet& msg);
   void ignored_traffic_participant_set_callback(const adore_ros2_msgs::msg::TrafficParticipantSet& msg);
   void publish_visualization_offset();
+  void traffic_participant_set_with_predictions_callback(const adore_ros2_msgs::msg::TrafficParticipantSet& msg);
 
 public:
 
