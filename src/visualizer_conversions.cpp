@@ -128,6 +128,21 @@ to_marker_array( const adore_ros2_msgs::msg::GoalPoint& goal, const Offset& offs
 }
 
 MarkerArray
+to_marker_array( const adore::math::Polygon2d& validity_area, const Offset& offset, const std::string& frame_id )
+{
+  MarkerArray marker_array;
+
+  auto closed_border = validity_area.points;
+  if( closed_border.size() > 0 )
+  {
+    closed_border.push_back( closed_border.front() );
+    auto boundary_marker = primitives::create_line_marker( closed_border, "boundary", 999, 0.2, colors::soft_red, offset, frame_id );
+    marker_array.markers.push_back( boundary_marker );
+  }
+  return marker_array;
+}
+
+MarkerArray
 to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_set, const Offset& offset, const std::string& frame_id )
 {
   MarkerArray marker_array;

@@ -70,6 +70,9 @@ VehicleVisualizer::VehicleVisualizer() : Node( "vehicle_visualizer_node" )
   declare_parameter( "visualize_ignored_traffic_participants", false );
   get_parameter( "visualize_ignored_traffic_participants", visualize_ignored_traffic_participants);
 
+  declare_parameter( "visualize_infrastructure_validity_area", false );
+  get_parameter( "visualize_infrastructure_validity_area", visualize_infrastructure_validity_area);
+
   create_subscribers();
   create_publishers();
 }
@@ -118,6 +121,11 @@ void VehicleVisualizer::create_subscribers()
       "ignored_participants", 10, std::bind( &VehicleVisualizer::ignored_traffic_participant_set_callback, this, std::placeholders::_1 ) );
   }
 
+  if ( visualize_infrastructure_validity_area )
+  {
+    subscriber_infrastructure_traffic_participants = create_subscription<adore_ros2_msgs::msg::TrafficParticipantSet>(
+      "infrastructure_traffic_participants", 10, std::bind( &VehicleVisualizer::ignored_traffic_participant_set_callback, this, std::placeholders::_1 ) );
+  }
   main_timer = create_wall_timer( 100ms, std::bind( &VehicleVisualizer::timer_callback, this ) );  
 }
 
@@ -166,6 +174,11 @@ void VehicleVisualizer::create_publishers()
   if ( visualize_map_image )
   {
     publisher_map_cloud = create_publisher<sensor_msgs::msg::PointCloud2>("visualize_map_image", 10 );
+  }
+
+  if ( visualize_infrastructure_validity_area )
+  {
+    publisher_infrastructure_validity_area = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_infrastructure_validity_area", 10 );
   }
 }
 
@@ -231,6 +244,12 @@ void VehicleVisualizer::timer_callback()
   {
     visualization_msgs::msg::MarkerArray traffic_participant_set_marker = conversions::to_marker_array(latest_ignored_traffic_participant_set.value(), visualization_offset.value(), frame_id);
     publisher_ignored_traffic_participant_markers->publish(traffic_participant_set_marker);
+  }
+
+  if ( visualize_infrastructure_validity_area && latest_validity_area.has_value() )
+  {
+    visualization_msgs::msg::MarkerArray validity_area_marker = conversions::to_marker_array(latest_validity_area.value(),visualization_offset.value(), frame_id);
+    publisher_infrastructure_validity_area->publish(validity_area_marker);
   }
     
   if ( visualize_map_image )
@@ -319,6 +338,16 @@ void VehicleVisualizer::traffic_participant_set_callback(const adore_ros2_msgs::
 void VehicleVisualizer::ignored_traffic_participant_set_callback(const adore_ros2_msgs::msg::TrafficParticipantSet& msg)
 {
   latest_ignored_traffic_participant_set = msg;
+}
+
+void VehicleVisualizer::infrastructure_traffic_participant_set_callback(const adore_ros2_msgs::msg::TrafficParticipantSet& msg)
+{
+  auto participant_cpp = dynamics::conversions::to_cpp_type( msg );
+
+  if ( !participant_cpp.validity_area.has_value() )
+    return;
+  
+  latest_validity_area = participant_cpp.validity_area.value();
 }
 
 } // namespace visualizer

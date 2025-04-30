@@ -74,6 +74,7 @@ MarkerArray to_marker_array( const adore_ros2_msgs::msg::Waypoints& waypoints_ms
 
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::VisualizableObject& msg, const Offset& offset );
 
+MarkerArray to_marker_array( const adore::math::Polygon2d& validity_area, const Offset& offset, const std::string& frame_id );
 
 } // namespace conversions
 } // namespace visualizer
