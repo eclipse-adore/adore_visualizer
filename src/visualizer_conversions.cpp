@@ -16,6 +16,7 @@
 #include <adore_math/polygon.h>
 #include <adore_dynamics_conversions.hpp>
 #include <dynamics/traffic_participant.hpp>
+#include <dynamics/vehicle_state.hpp>
 
 #include "adore_ros2_msgs/msg/point2d.hpp"
 #include "adore_ros2_msgs/msg/vehicle_state_dynamic.hpp"
@@ -260,9 +261,28 @@ to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory, const Offse
     trajectory_color = colors::soft_purple;
   }
 
+  
+  std::vector<adore_ros2_msgs::msg::VehicleStateDynamic> simplified_state;
+   for ( int i = 0; i < trajectory.states.size(); i++ )
+  {
+    adore_ros2_msgs::msg::VehicleStateDynamic relative_state = trajectory.states[i];
+
+    relative_state.x = trajectory.states[i].x - trajectory.states[0].x;
+    relative_state.y = trajectory.states[i].y - trajectory.states[0].y;
+    
+    simplified_state.push_back(relative_state);
+    
+  }
+
   // Create the line marker for the trajectory
-  auto line_marker = primitives::create_flat_line_marker( trajectory.states, "decision", trajectory.request_id, 1.8, trajectory_color,
-                                                          offset, frame_id );
+  auto line_marker = primitives::create_flat_line_marker( simplified_state, "decision", trajectory.request_id, 1.8, trajectory_color,
+                                                          Offset { 0.0, 0.0 }, frame_id );
+  // line_marker.frame_locked = true;
+  // line_marker.header.frame_id = frame_id;
+
+
+
+  
   marker_array.markers.push_back( line_marker );
 
 
@@ -305,17 +325,17 @@ to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory, const Offse
 
 // Conversion function for odometry to markers
 MarkerArray
-to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& /*msg*/, const Offset& /*offset*/, const std::string& frame_id )
+to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Offset& offset, const std::string& frame_id )
 {
   MarkerArray marker_array;
 
-  auto ego_vehicle_marker = primitives::create_3d_object_marker( 0, 0,
+  auto ego_vehicle_marker = primitives::create_3d_object_marker( 0.0, 0.0,
                                                                  0.0, // Z height
                                                                  1,   // scale
-                                                                 0.0, "visualize_3d_vehicle", 0, colors::blue, "low_poly_ngc_model.dae",
-                                                                 { 0.0, 0.0 } ); // Create a rectangle marker for the ego vehicle
+                                                                 0, "visualize_3d_vehicle", 0, colors::blue, "low_poly_ngc_model.dae",
+                                                                 Offset { 0.0, 0.0 } ); // Create a rectangle marker for the ego vehicle
 
-  ego_vehicle_marker.frame_locked    = true;
+  // ego_vehicle_marker.frame_locked    = true;
   ego_vehicle_marker.header.frame_id = frame_id;
 
   ego_vehicle_marker.mesh_use_embedded_materials = true;

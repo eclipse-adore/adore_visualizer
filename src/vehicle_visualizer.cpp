@@ -205,7 +205,7 @@ void VehicleVisualizer::timer_callback()
 
   if ( visualize_trajectory && latest_trajectory.has_value() )
   {
-    visualization_msgs::msg::MarkerArray planned_trajectory_marker = conversions::to_marker_array(latest_trajectory.value(), visualization_offset.value(), frame_id);
+    visualization_msgs::msg::MarkerArray planned_trajectory_marker = conversions::to_marker_array(latest_trajectory.value(), visualization_offset.value(), ns_prefix);
     publisher_trajectory_markers->publish(planned_trajectory_marker);
   }
 
