@@ -18,6 +18,7 @@
 #include "adore_map_conversions.hpp"
 #include "adore_math/angles.h"
 #include <string>
+#include "adore_ros2_msgs/msg/caution_zone.hpp"
 #include "adore_ros2_msgs/msg/goal_point.hpp"
 #include "adore_ros2_msgs/msg/map.hpp"
 #include "adore_ros2_msgs/msg/traffic_participant.hpp"
@@ -28,6 +29,7 @@
 #include <adore_ros2_msgs/msg/traffic_participant_set.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include "adore_ros2_msgs/msg/waypoints.hpp"
 #include "visualizer_conversions.hpp"
 #include <adore_ros2_msgs/msg/trajectory.hpp>
 #include "tf2_ros/transform_broadcaster.h"
@@ -60,6 +62,9 @@ private:
   rclcpp::Subscription<adore_ros2_msgs::msg::Map>::SharedPtr subscriber_local_map;
   rclcpp::Subscription<adore_ros2_msgs::msg::GoalPoint>::SharedPtr subscriber_goal_point;
   rclcpp::Subscription<adore_ros2_msgs::msg::Route>::SharedPtr subscriber_route;
+  rclcpp::Subscription<adore_ros2_msgs::msg::CautionZone>::SharedPtr subscriber_caution_zone;
+  rclcpp::Subscription<adore_ros2_msgs::msg::Waypoints>::SharedPtr subscriber_remote_operation_waypoints;
+  rclcpp::Subscription<adore_ros2_msgs::msg::Trajectory>::SharedPtr subscriber_remote_operation_trajectory;
   rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr subscriber_traffic_participants;
   rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr subscriber_ignored_traffic_participants;
   rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr subscriber_traffic_participants_predicted_trajectories;
@@ -71,6 +76,7 @@ private:
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_local_map_markers;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_goal_point_markers;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_route_markers;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_caution_zones;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_traffic_participant_markers;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_ignored_traffic_participant_markers;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_traffic_participant_predicted_trajectories;
@@ -83,6 +89,7 @@ private:
   std::optional<adore_ros2_msgs::msg::Map> latest_local_map;
   std::optional<adore_ros2_msgs::msg::GoalPoint> latest_goal_point;
   std::optional<adore_ros2_msgs::msg::Route> latest_route;
+  std::optional<adore_ros2_msgs::msg::CautionZone> latest_caution_zone;
   std::optional<adore_ros2_msgs::msg::TrafficParticipantSet> latest_traffic_participant_set;
   std::optional<adore_ros2_msgs::msg::TrafficParticipantSet> latest_ignored_traffic_participant_set;
   std::optional<adore_ros2_msgs::msg::TrafficParticipantSet> latest_traffic_participants_set_with_predictions;
@@ -104,12 +111,14 @@ private:
   bool visualize_traffic_participants = false;
   bool visualize_traffic_participants_predicted_trajectories = false;
   bool visualize_ignored_traffic_participants = false;
+  bool visualize_remote_operations = false;
 
   // callback functions
   void timer_callback();
   void vehicle_state_dynamic_callback(const adore_ros2_msgs::msg::VehicleStateDynamic& msg);
   void planned_trajectory_callback(const adore_ros2_msgs::msg::Trajectory& msg);
   void local_map_callback(const adore_ros2_msgs::msg::Map& msg);
+  void caution_zone_callback(const adore_ros2_msgs::msg::CautionZone& msg);
   void route_callback(const adore_ros2_msgs::msg::Route& msg);
   void goal_point_callback(const adore_ros2_msgs::msg::GoalPoint& msg);
   void traffic_participant_set_callback(const adore_ros2_msgs::msg::TrafficParticipantSet& msg);

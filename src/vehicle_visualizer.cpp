@@ -18,6 +18,7 @@
 #include <dynamics/traffic_participant.hpp>
 #include <dynamics/trajectory.hpp>
 #include <dynamics/vehicle_state.hpp>
+#include "adore_ros2_msgs/msg/caution_zone.hpp"
 #include "adore_ros2_msgs/msg/goal_point.hpp"
 #include "adore_ros2_msgs/msg/route.hpp"
 #include "adore_ros2_msgs/msg/traffic_participant_set.hpp"
@@ -75,6 +76,9 @@ VehicleVisualizer::VehicleVisualizer() : Node( "vehicle_visualizer_node" )
   declare_parameter( "visualize_ignored_traffic_participants", false );
   get_parameter( "visualize_ignored_traffic_participants", visualize_ignored_traffic_participants);
 
+  declare_parameter( "visualize_remote_operations ", false );
+  get_parameter( "visualize_remote_operations ", visualize_remote_operations );
+
   create_subscribers();
   create_publishers();
 }
@@ -128,6 +132,12 @@ void VehicleVisualizer::create_subscribers()
       "ignored_participants", 10, std::bind( &VehicleVisualizer::ignored_traffic_participant_set_callback, this, std::placeholders::_1 ) );
   }
 
+  if ( visualize_remote_operations )
+  {
+    subscriber_caution_zone = create_subscription<adore_ros2_msgs::msg::CautionZone>(
+      "caution_zones", 10, std::bind( &VehicleVisualizer::caution_zone_callback, this, std::placeholders::_1 ) );
+  }
+
   main_timer = create_wall_timer( 100ms, std::bind( &VehicleVisualizer::timer_callback, this ) );  
 }
 
@@ -156,6 +166,11 @@ void VehicleVisualizer::create_publishers()
   if ( visualize_route )
   {
     publisher_route_markers = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_route", 10 );
+  }
+
+  if ( visualize_remote_operations )
+  {
+    publisher_caution_zones = create_publisher<visualization_msgs::msg::MarkerArray>("visualize_caution_zones", 10 );
   }
 
   if ( visualize_goal_point )
@@ -227,6 +242,15 @@ void VehicleVisualizer::timer_callback()
   {
     visualization_msgs::msg::MarkerArray goal_point_marker = conversions::to_marker_array(latest_goal_point.value(), visualization_offset.value(), frame_id);
     publisher_goal_point_markers->publish(goal_point_marker);
+  }
+
+  if ( visualize_remote_operations )
+  {
+    if ( latest_caution_zone.has_value() )
+    {
+      visualization_msgs::msg::MarkerArray causion_zone_marker = conversions::to_marker_array(latest_caution_zone.value(), visualization_offset.value(), frame_id);
+      publisher_caution_zones->publish(causion_zone_marker );
+    }
   }
 
   if ( visualize_route && latest_route.has_value() )
@@ -361,6 +385,11 @@ void VehicleVisualizer::traffic_participant_set_with_predictions_callback(const 
 void VehicleVisualizer::ignored_traffic_participant_set_callback(const adore_ros2_msgs::msg::TrafficParticipantSet& msg)
 {
   latest_ignored_traffic_participant_set = msg;
+}
+
+void VehicleVisualizer::caution_zone_callback(const adore_ros2_msgs::msg::CautionZone& msg)
+{
+  latest_caution_zone = msg;
 }
 
 } // namespace visualizer
