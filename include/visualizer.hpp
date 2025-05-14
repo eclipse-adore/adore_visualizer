@@ -108,7 +108,7 @@ private:
 
 public:
 
-  explicit Visualizer();
+  explicit Visualizer( const rclcpp::NodeOptions& options );
 };
 
 template<typename MsgT>

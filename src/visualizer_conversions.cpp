@@ -46,9 +46,13 @@ to_marker_array( const adore_ros2_msgs::msg::Map& local_map_msg )
   {
     for( const auto& lane : road.lanes )
     {
-      auto inner_marker  = primitives::create_line_marker( lane.inner_points, "inner", lane.id, 0.15, colors::white );
-      auto outer_marker  = primitives::create_line_marker( lane.outer_points, "outer", lane.id, 0.15, colors::white );
-      auto center_marker = primitives::create_line_marker( lane.center_points, "center", lane.id, 0.1, colors::gray );
+      auto inner_marker      = primitives::create_line_marker( lane.inner_points, "inner", lane.id, 0.15, colors::white );
+      auto outer_marker      = primitives::create_line_marker( lane.outer_points, "outer", lane.id, 0.15, colors::white );
+      auto center_marker     = primitives::create_line_marker( lane.center_points, "center", lane.id, 0.1, colors::gray );
+      inner_marker.lifetime  = rclcpp::Duration::from_seconds( 5.0 );
+      outer_marker.lifetime  = rclcpp::Duration::from_seconds( 5.0 );
+      center_marker.lifetime = rclcpp::Duration::from_seconds( 5.0 );
+
       marker_array.markers.push_back( inner_marker );
       marker_array.markers.push_back( outer_marker );
       marker_array.markers.push_back( center_marker );
@@ -96,11 +100,11 @@ to_marker_array( const adore_ros2_msgs::msg::GoalPoint& goal )
   double text_y_position = goal.y_position;                                    // Align vertically with the finish line
 
   // Create the text markers
-  MarkerArray text_markers = primitives::create_text_marker( text_x_position, text_y_position, text, text_size, text_color, ns );
+  Marker text_markers = primitives::create_text_marker( text_x_position, text_y_position, 0.0, text, text_size, text_color, ns );
 
   // Combine the markers from both arrays
   marker_array.markers.insert( marker_array.markers.end(), finish_line_markers.markers.begin(), finish_line_markers.markers.end() );
-  marker_array.markers.insert( marker_array.markers.end(), text_markers.markers.begin(), text_markers.markers.end() );
+  marker_array.markers.push_back( text_markers );
 
   return marker_array;
 }
@@ -220,35 +224,23 @@ to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory )
 {
   MarkerArray marker_array;
 
+  if( trajectory.states.size() == 0 )
+  {
+    return marker_array;
+  }
+  const auto& state      = trajectory.states[0];
+  double      text_size  = 1;
+  Color       text_color = colors::blue;
+  std::string ns         = "trajectory_label";
+
+  // Create the text markers
+  Marker text_marker = primitives::create_text_marker( state.x, state.y, state.z + 5, trajectory.label, text_size, text_color, ns );
+
+  // Combine the markers from both arrays
+  marker_array.markers.push_back( text_marker );
   // Create the line marker for the trajectory
   auto line_marker = primitives::create_flat_line_marker( trajectory.states, "decision", trajectory.request_id, 1.8, colors::soft_blue );
   marker_array.markers.push_back( line_marker );
-
-  // Determine the position for the label
-  size_t num_states = trajectory.states.size();
-  if( num_states > 0 )
-  {
-    const auto& first_state = trajectory.states[0];
-    double      text_size   = 1;
-    Color       text_color  = colors::blue;
-    std::string ns          = "trajectory_label";
-
-    double forward_distance = -3.0; // 2 meters forward
-    double right_distance   = 0.0;  // 2 meters to the right
-
-    double text_x_position = first_state.x + forward_distance * cos( first_state.yaw_angle )
-                           - right_distance * sin( first_state.yaw_angle );
-
-    double text_y_position = first_state.y + forward_distance * sin( first_state.yaw_angle )
-                           + right_distance * cos( first_state.yaw_angle );
-
-    // Create the text markers
-    MarkerArray text_markers = primitives::create_text_marker( text_x_position, text_y_position, trajectory.label, text_size, text_color,
-                                                               ns );
-
-    // Combine the markers from both arrays
-    marker_array.markers.insert( marker_array.markers.end(), text_markers.markers.begin(), text_markers.markers.end() );
-  }
 
   return marker_array;
 }
@@ -392,11 +384,11 @@ to_marker_array( const adore_ros2_msgs::msg::CautionZone& caution_zone )
   centroid_x        /= num_points;
   centroid_y        /= num_points;
 
-  MarkerArray text_markers = primitives::create_text_marker( centroid_x, centroid_y, caution_zone.label,
-                                                             1.0,            // Text size
-                                                             colors::orange, // Text color
-                                                             caution_zone.label );
-  marker_array.markers.insert( marker_array.markers.end(), text_markers.markers.begin(), text_markers.markers.end() );
+  Marker text_markers = primitives::create_text_marker( centroid_x, centroid_y, 0.0, caution_zone.label,
+                                                        1.0,            // Text size
+                                                        colors::orange, // Text color
+                                                        caution_zone.label );
+  marker_array.markers.push_back( text_markers );
 
   return marker_array;
 }
