@@ -18,12 +18,16 @@
 
 #include <adore_ros2_msgs/msg/traffic_participant_set.hpp>
 
-#include "characters.hpp"
 #include "color_palette.hpp"
 #include <geometry_msgs/msg/point.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <tf2/LinearMath/Quaternion.h>
+#include <tf2/utils.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 namespace adore
@@ -31,50 +35,50 @@ namespace adore
 namespace visualizer
 {
 
-struct Offset
-{
-  double x;
-  double y;
-};
-
 using Marker      = visualization_msgs::msg::Marker;
 using MarkerArray = visualization_msgs::msg::MarkerArray;
 
 namespace primitives
 {
 
+
 // Helper to create a rectangle (or cube) marker
 Marker create_rectangle_marker( double x, double y, double z, double length, double width, double height, double heading,
-                                const std::string& ns, int id, const Color& color, const Offset& offset );
+                                const std::string& ns, int id, const Color& color );
 
 Marker create_3d_object_marker( double x, double y, double z, double scale, double heading, const std::string& ns, int id,
-                                const Color& color, const std::string& file_name, const Offset& offset );
+                                const Color& color, const std::string& file_name );
 
 // Helper to create a sphere marker
-Marker create_sphere_marker( double x, double y, double z, double scale, const std::string& ns, int id, const Color& color,
-                             const Offset& offset );
+Marker create_sphere_marker( double x, double y, double z, double scale, const std::string& ns, int id, const Color& color );
+
+
+// Function to create a checkered finish flag marker array
+MarkerArray create_finish_line_marker( double x, double y, double square_size );
+
+MarkerArray create_text_marker( double x, double y, const std::string& text, double size, const Color& color, const std::string& ns );
+
+void transform_marker( Marker& marker, const geometry_msgs::msg::TransformStamped& transform );
 
 // Template function to create a line marker (can accept any type with x, y fields)
 template<typename PointType>
 Marker
-create_line_marker( const PointType& start, const PointType& end, const std::string& ns, int id, double scale, const Color& color,
-                    const Offset& offset )
+create_line_marker( const PointType& start, const PointType& end, const std::string& ns, int id, double scale, const Color& color )
 {
   Marker marker;
-  marker.header.frame_id = "visualization_offset";
-  marker.ns              = ns;
-  marker.id              = id;
-  marker.type            = Marker::LINE_STRIP;
-  marker.action          = Marker::ADD;
+  marker.ns     = ns;
+  marker.id     = id;
+  marker.type   = Marker::LINE_STRIP;
+  marker.action = Marker::ADD;
 
   // Add start and end points
   geometry_msgs::msg::Point start_point, end_point;
-  start_point.x = start.x - offset.x;
-  start_point.y = start.y - offset.y;
+  start_point.x = start.x;
+  start_point.y = start.y;
   start_point.z = 0.0; // Assuming a 2D point, z can be set to 0.
 
-  end_point.x = end.x - offset.x;
-  end_point.y = end.y - offset.y;
+  end_point.x = end.x;
+  end_point.y = end.y;
   end_point.z = 0.0;
 
   marker.points.push_back( start_point );
@@ -95,21 +99,20 @@ create_line_marker( const PointType& start, const PointType& end, const std::str
 // Template function to create a line marker (can accept any type with x, y fields)
 template<typename IterablePoints>
 Marker
-create_line_marker( const IterablePoints& points, const std::string& ns, int id, double scale, const Color& color, const Offset& offset )
+create_line_marker( const IterablePoints& points, const std::string& ns, int id, double scale, const Color& color )
 {
   Marker marker;
-  marker.header.frame_id = "visualization_offset";
-  marker.ns              = ns;
-  marker.id              = id;
-  marker.type            = Marker::LINE_STRIP;
-  marker.action          = Marker::ADD;
+  marker.ns     = ns;
+  marker.id     = id;
+  marker.type   = Marker::LINE_STRIP;
+  marker.action = Marker::ADD;
 
   for( const auto& point : points )
   {
     // Add start and end points
     geometry_msgs::msg::Point marker_point;
-    marker_point.x = point.x - offset.x;
-    marker_point.y = point.y - offset.y;
+    marker_point.x = point.x;
+    marker_point.y = point.y;
     marker_point.z = 0.5;
 
     marker.points.push_back( marker_point );
@@ -130,15 +133,13 @@ create_line_marker( const IterablePoints& points, const std::string& ns, int id,
 
 template<typename IterablePoints>
 Marker
-create_flat_line_marker( const IterablePoints& points, const std::string& ns, int id, double width, const Color& color,
-                         const Offset& offset )
+create_flat_line_marker( const IterablePoints& points, const std::string& ns, int id, double width, const Color& color )
 {
   Marker marker;
-  marker.header.frame_id = "visualization_offset";
-  marker.ns              = ns;
-  marker.id              = id;
-  marker.type            = Marker::TRIANGLE_LIST; // Using triangles to form quads
-  marker.action          = Marker::ADD;
+  marker.ns     = ns;
+  marker.id     = id;
+  marker.type   = Marker::TRIANGLE_LIST; // Using triangles to form quads
+  marker.action = Marker::ADD;
 
   // Set the color.
   marker.color.r = color[0];
@@ -215,17 +216,17 @@ create_flat_line_marker( const IterablePoints& points, const std::string& ns, in
 
     // Define four corners of the quad.
     geometry_msgs::msg::Point p1, p2, p3, p4;
-    p1.x = current.x - off_current.x() - offset.x;
-    p1.y = current.y - off_current.y() - offset.y;
+    p1.x = current.x - off_current.x();
+    p1.y = current.y - off_current.y();
     p1.z = 0.5;
-    p2.x = current.x + off_current.x() - offset.x;
-    p2.y = current.y + off_current.y() - offset.y;
+    p2.x = current.x + off_current.x();
+    p2.y = current.y + off_current.y();
     p2.z = 0.5;
-    p3.x = next.x - off_next.x() - offset.x;
-    p3.y = next.y - off_next.y() - offset.y;
+    p3.x = next.x - off_next.x();
+    p3.y = next.y - off_next.y();
     p3.z = 0.5;
-    p4.x = next.x + off_next.x() - offset.x;
-    p4.y = next.y + off_next.y() - offset.y;
+    p4.x = next.x + off_next.x();
+    p4.y = next.y + off_next.y();
     p4.z = 0.5;
 
     // Create two triangles to form the quad.
@@ -241,11 +242,6 @@ create_flat_line_marker( const IterablePoints& points, const std::string& ns, in
   return marker;
 }
 
-// Function to create a checkered finish flag marker array
-MarkerArray create_finish_line_marker( double x, double y, double square_size, const Offset& offset );
-
-MarkerArray create_text_marker( double x, double y, const std::string& text, double size, const Color& color, const std::string& ns,
-                                const Offset& offset, double rotation = 0 );
 } // namespace primitives
 
 } // namespace visualizer

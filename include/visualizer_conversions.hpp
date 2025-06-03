@@ -27,7 +27,6 @@
 #include <adore_ros2_msgs/msg/waypoints.hpp>
 
 #include "color_palette.hpp"
-#include "state_buffer.hpp"
 #include "visualization_primitives.hpp"
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -48,29 +47,27 @@ namespace conversions
 
 
 // Helper functions to convert messages to MarkerArray
-MarkerArray to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& msg, const Offset& offset );
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& msg );
 
-MarkerArray to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& msg, const Offset& offset );
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& msg );
 
-MarkerArray to_marker_array( const adore_ros2_msgs::msg::Trajectory& set_point_request, const Offset& offset );
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::Trajectory& set_point_request );
 
-MarkerArray to_marker_array( const StateBuffer& odometry_buffer, const Offset& offset );
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::SafetyCorridor& safety_corridor );
 
-MarkerArray to_marker_array( const adore_ros2_msgs::msg::SafetyCorridor& safety_corridor, const Offset& offset );
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::Map& local_map );
 
-MarkerArray to_marker_array( const adore_ros2_msgs::msg::Map& local_map, const Offset& offset );
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::Route& route );
 
-MarkerArray to_marker_array( const adore_ros2_msgs::msg::Route& route, const Offset& offset );
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::GoalPoint& route );
 
-MarkerArray to_marker_array( const adore_ros2_msgs::msg::GoalPoint& route, const Offset& offset );
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::TrafficSignals& traffic_signals );
 
-MarkerArray to_marker_array( const adore_ros2_msgs::msg::TrafficSignals& traffic_signals, const Offset& offset );
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::CautionZone& caution_zone );
 
-MarkerArray to_marker_array( const adore_ros2_msgs::msg::CautionZone& caution_zone, const Offset& offset );
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::Waypoints& waypoints_msg );
 
-MarkerArray to_marker_array( const adore_ros2_msgs::msg::Waypoints& waypoints_msg, const Offset& offset );
-
-MarkerArray to_marker_array( const adore_ros2_msgs::msg::VisualizableObject& msg, const Offset& offset );
+MarkerArray to_marker_array( const adore_ros2_msgs::msg::VisualizableObject& msg );
 
 
 } // namespace conversions
