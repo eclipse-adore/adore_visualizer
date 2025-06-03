@@ -56,7 +56,7 @@ Marker create_sphere_marker( double x, double y, double z, double scale, const s
 // Function to create a checkered finish flag marker array
 MarkerArray create_finish_line_marker( double x, double y, double square_size );
 
-MarkerArray create_text_marker( double x, double y, const std::string& text, double size, const Color& color, const std::string& ns );
+Marker create_text_marker( double x, double y, double z, const std::string& text, double size, const Color& color, const std::string& ns );
 
 void transform_marker( Marker& marker, const geometry_msgs::msg::TransformStamped& transform );
 
@@ -136,6 +136,10 @@ Marker
 create_flat_line_marker( const IterablePoints& points, const std::string& ns, int id, double width, const Color& color )
 {
   Marker marker;
+
+  if( points.size() < 3 )
+    return marker; // Not enough points to form a line.
+
   marker.ns     = ns;
   marker.id     = id;
   marker.type   = Marker::TRIANGLE_LIST; // Using triangles to form quads
@@ -147,8 +151,6 @@ create_flat_line_marker( const IterablePoints& points, const std::string& ns, in
   marker.color.b = color[2];
   marker.color.a = color[3];
 
-  if( points.size() < 2 )
-    return marker; // Not enough points to form a line.
 
   // Compute per-vertex offsets.
   // Each offset is an Eigen::Vector2d representing (x,y) offset for that vertex.

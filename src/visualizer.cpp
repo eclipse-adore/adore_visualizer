@@ -20,8 +20,8 @@ namespace adore
 namespace visualizer
 {
 
-Visualizer::Visualizer() :
-  Node( "visualizer_node" )
+Visualizer::Visualizer(const rclcpp::NodeOptions & options) :
+  Node( "visualizer_node" , options)
 {
   load_parameters();
   create_publishers();
@@ -228,7 +228,10 @@ main( int argc, char* argv[] )
 {
   rclcpp::init( argc, argv );
 
-  std::shared_ptr<adore::visualizer::Visualizer> node = std::make_shared<adore::visualizer::Visualizer>();
+  std::shared_ptr<adore::visualizer::Visualizer> node = std::make_shared<adore::visualizer::Visualizer>(rclcpp::NodeOptions{});
   rclcpp::spin( node );
   rclcpp::shutdown();
 }
+
+#include "rclcpp_components/register_node_macro.hpp"
+RCLCPP_COMPONENTS_REGISTER_NODE(adore::visualizer::Visualizer)

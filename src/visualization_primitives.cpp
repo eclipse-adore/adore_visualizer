@@ -188,11 +188,9 @@ create_3d_object_marker( double x, double y, double z, double scale, double head
   return marker;
 }
 
-MarkerArray
-create_text_marker( double x, double y, const std::string& text, double size, const Color& color, const std::string& ns )
+Marker
+create_text_marker( double x, double y, double z, const std::string& text, double size, const Color& color, const std::string& ns )
 {
-  MarkerArray marker_array;
-
   Marker marker;
   marker.header.frame_id = "world";
   marker.ns              = ns;
@@ -202,7 +200,7 @@ create_text_marker( double x, double y, const std::string& text, double size, co
 
   marker.pose.position.x = x;
   marker.pose.position.y = y;
-  marker.pose.position.z = 1.0;
+  marker.pose.position.z = z;
 
   marker.scale.z = size;
 
@@ -215,8 +213,7 @@ create_text_marker( double x, double y, const std::string& text, double size, co
 
   marker.frame_locked = true;
 
-  marker_array.markers.push_back( marker );
-  return marker_array;
+  return marker;
 }
 
 void

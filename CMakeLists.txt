@@ -9,7 +9,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include($ENV{SOURCE_DIRECTORY}/libraries/adore_libraries.cmake)
 
 include(requirements.cmake)
-
+set(CMAKE_CXX_STANDARD 20)
 # Ensure the Release build uses -O3 for optimization
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
   add_compile_options(-O3)
