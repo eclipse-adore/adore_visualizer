@@ -193,6 +193,8 @@ Visualizer::publish_map_image()
   if( !visualization_offset_center )
     return;
 
+  return;
+
   // Generate or retrieve cached PointCloud2
   auto index_and_tile = map_image::generate_occupancy_grid( visualization_offset_center->x, visualization_offset_center->y, maps_folder,
                                                             false, grid_tile_cache, map_image_api_key );
