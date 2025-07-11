@@ -12,9 +12,12 @@
  *    Marko Mizdrak
  ********************************************************************************/
 #include "visualizer_conversions.hpp"
+#include <adore_dynamics_conversions.hpp>
+#include <adore_math/point.h>
 
 #include "color_palette.hpp"
 #include "visualization_primitives.hpp"
+#include <dynamics/traffic_participant.hpp>
 
 namespace adore
 {
@@ -114,6 +117,8 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
 {
   MarkerArray marker_array;
 
+  dynamics::TrafficParticipantSet traffic_participant_set_cpp = dynamics::conversions::to_cpp_type( participant_set );
+
   for( const auto& participant : participant_set.data )
   {
     const auto& state   = participant.participant_data.motion_state;
@@ -133,7 +138,23 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
 
     bool controllable = participant.participant_data.v2x_station_id != 0;
 
-    if( controllable )
+    bool inside_validity_area = true;
+    if ( traffic_participant_set_cpp.validity_area.has_value() )
+    {
+      math::Point2d participant_position = { state.x, state.y };
+
+      if ( !traffic_participant_set_cpp.validity_area.value().point_inside(participant_position))
+      {
+        inside_validity_area = false;
+      }
+    }
+
+    if ( !inside_validity_area )
+    {
+      participant_color = colors::gray;
+    }
+
+    if( controllable && inside_validity_area)
     {
       object_marker                             = primitives::create_3d_object_marker( state.x, state.y,
                                                                                        0.01, // Z height
@@ -213,7 +234,7 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
   if( closed_border.size() > 0 )
   {
     closed_border.push_back( closed_border.front() );
-    auto boundary_marker = primitives::create_line_marker( closed_border, "boundary", 999, 0.2, colors::soft_red );
+    auto boundary_marker = primitives::create_line_marker( closed_border, "boundary", 999, 0.2, colors::soft_green );
     marker_array.markers.push_back( boundary_marker );
   }
   return marker_array;
