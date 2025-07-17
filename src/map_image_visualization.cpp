@@ -34,7 +34,7 @@ namespace map_image
 std::string
 build_image_file_path( int map_tile_x, int map_tile_y, const std::string &map_storage_path, const std::string &extension )
 {
-  return map_storage_path + "/" + std::to_string( map_tile_x ) + ":" + std::to_string( map_tile_y ) + extension;
+  return map_storage_path + "/satelite_map_image_" + std::to_string( map_tile_x ) + "_" + std::to_string( map_tile_y ) + extension;
 }
 
 // Build a wget command for downloading an image
