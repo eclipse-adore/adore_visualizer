@@ -20,8 +20,8 @@ namespace adore
 namespace visualizer
 {
 
-Visualizer::Visualizer(const rclcpp::NodeOptions & options) :
-  Node( "visualizer_node" , options)
+Visualizer::Visualizer( const rclcpp::NodeOptions& options ) :
+  Node( "visualizer_node", options )
 {
   load_parameters();
   create_publishers();
@@ -79,7 +79,7 @@ Visualizer::create_subscribers()
   tf_buffer   = std::make_shared<tf2_ros::Buffer>( this->get_clock() );
   tf_listener = std::make_shared<tf2_ros::TransformListener>( *tf_buffer, this );
 
-  state_subscription = create_subscription<adore_ros2_msgs::msg::VehicleStateDynamic>( "vehicle_state/dynamic", 1,
+  state_subscription = create_subscription<adore_ros2_msgs::msg::VehicleStateDynamic>( "vehicle_state_dynamic", 1,
                                                                                        std::bind( &Visualizer::vehicle_state_callback, this,
                                                                                                   std::placeholders::_1 ) );
 
@@ -228,10 +228,10 @@ main( int argc, char* argv[] )
 {
   rclcpp::init( argc, argv );
 
-  std::shared_ptr<adore::visualizer::Visualizer> node = std::make_shared<adore::visualizer::Visualizer>(rclcpp::NodeOptions{});
+  std::shared_ptr<adore::visualizer::Visualizer> node = std::make_shared<adore::visualizer::Visualizer>( rclcpp::NodeOptions{} );
   rclcpp::spin( node );
   rclcpp::shutdown();
 }
 
 #include "rclcpp_components/register_node_macro.hpp"
-RCLCPP_COMPONENTS_REGISTER_NODE(adore::visualizer::Visualizer)
+RCLCPP_COMPONENTS_REGISTER_NODE( adore::visualizer::Visualizer )
