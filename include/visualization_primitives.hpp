@@ -131,6 +131,37 @@ create_line_marker( const IterablePoints& points, const std::string& ns, int id,
   return marker;
 }
 
+// Detect & fetch an acceleration-like field from a point (common names).
+template<typename P>
+constexpr std::optional<double>
+get_acceleration( const P& p )
+{
+  if constexpr( requires { p.acceleration; } )
+  {
+    return static_cast<double>( p.acceleration );
+  }
+  else if constexpr( requires { p.accel; } )
+  {
+    return static_cast<double>( p.accel );
+  }
+  else if constexpr( requires { p.acc; } )
+  {
+    return static_cast<double>( p.acc );
+  }
+  else if constexpr( requires { p.a; } )
+  {
+    return static_cast<double>( p.a );
+  }
+  else if constexpr( requires { p.ax; } )
+  {
+    return static_cast<double>( p.ax );
+  }
+  else
+  {
+    return std::nullopt;
+  }
+}
+
 template<typename IterablePoints>
 Marker
 create_flat_line_marker( const IterablePoints& points, const std::string& ns, int id, double width, const Color& color )
@@ -145,30 +176,55 @@ create_flat_line_marker( const IterablePoints& points, const std::string& ns, in
   marker.type   = Marker::TRIANGLE_LIST; // Using triangles to form quads
   marker.action = Marker::ADD;
 
-  // Set the color.
+  // Base color (used if we can't color per-vertex).
   marker.color.r = color[0];
   marker.color.g = color[1];
   marker.color.b = color[2];
   marker.color.a = color[3];
 
+  // Will we color per-vertex? (true if the point type exposes an acceleration field)
+  bool color_by_accel = false;
+  if( points.size() > 0 )
+  {
+    color_by_accel = get_acceleration( *points.begin() ).has_value();
+  }
+
+  // If coloring per-vertex, precompute a color for each *input* point.
+  std::vector<Color> per_point_colors;
+  if( color_by_accel )
+  {
+    per_point_colors.reserve( points.size() );
+    for( const auto& pt : points )
+    {
+      const auto maybe_acc = get_acceleration( pt );
+      if( maybe_acc.has_value() )
+      {
+        double hue = accel_to_hue_deg( *maybe_acc );
+        per_point_colors.emplace_back( hsv_to_rgb( hue, 1.0, 0.8 ) );
+      }
+      else
+      {
+        per_point_colors.emplace_back( color );
+      }
+    }
+  }
 
   // Compute per-vertex offsets.
-  // Each offset is an Eigen::Vector2d representing (x,y) offset for that vertex.
   std::vector<Eigen::Vector2d> vertex_offsets;
   vertex_offsets.reserve( points.size() );
 
-  // For the first vertex, use the normal from the first segment.
+  // First vertex normal.
   {
     auto            it     = points.begin();
     auto            nextIt = std::next( it );
     double          dx     = nextIt->x - it->x;
     double          dy     = nextIt->y - it->y;
-    double          len    = std::sqrt( dx * dx + dy * dy );
+    double          len    = std::hypot( dx, dy );
     Eigen::Vector2d normal = ( len > 0 ) ? Eigen::Vector2d( -dy / len, dx / len ) : Eigen::Vector2d( 0, 0 );
     vertex_offsets.push_back( normal * ( width / 2.0 ) );
   }
 
-  // For intermediate vertices, average the normals from the incoming and outgoing segments.
+  // Intermediate vertices: averaged normals.
   for( auto it = std::next( points.begin() ); it != std::prev( points.end() ); ++it )
   {
     auto prevIt = std::prev( it );
@@ -176,16 +232,16 @@ create_flat_line_marker( const IterablePoints& points, const std::string& ns, in
 
     double          dx1     = it->x - prevIt->x;
     double          dy1     = it->y - prevIt->y;
-    double          len1    = std::sqrt( dx1 * dx1 + dy1 * dy1 );
+    double          len1    = std::hypot( dx1, dy1 );
     Eigen::Vector2d normal1 = ( len1 > 0 ) ? Eigen::Vector2d( -dy1 / len1, dx1 / len1 ) : Eigen::Vector2d( 0, 0 );
 
     double          dx2     = nextIt->x - it->x;
     double          dy2     = nextIt->y - it->y;
-    double          len2    = std::sqrt( dx2 * dx2 + dy2 * dy2 );
+    double          len2    = std::hypot( dx2, dy2 );
     Eigen::Vector2d normal2 = ( len2 > 0 ) ? Eigen::Vector2d( -dy2 / len2, dx2 / len2 ) : Eigen::Vector2d( 0, 0 );
 
     Eigen::Vector2d avg_normal;
-    if( normal1.norm() > 0 || normal2.norm() > 0 )
+    if( normal1.squaredNorm() > 0.0 || normal2.squaredNorm() > 0.0 )
       avg_normal = ( normal1 + normal2 ).normalized() * ( width / 2.0 );
     else
       avg_normal = Eigen::Vector2d( 0, 0 );
@@ -193,30 +249,27 @@ create_flat_line_marker( const IterablePoints& points, const std::string& ns, in
     vertex_offsets.push_back( avg_normal );
   }
 
-  // For the last vertex, use the normal from the last segment.
+  // Last vertex normal.
   {
     auto            it     = std::prev( points.end() );
     auto            prevIt = std::prev( it );
     double          dx     = it->x - prevIt->x;
     double          dy     = it->y - prevIt->y;
-    double          len    = std::sqrt( dx * dx + dy * dy );
+    double          len    = std::hypot( dx, dy );
     Eigen::Vector2d normal = ( len > 0 ) ? Eigen::Vector2d( -dy / len, dx / len ) : Eigen::Vector2d( 0, 0 );
     vertex_offsets.push_back( normal * ( width / 2.0 ) );
   }
 
-  // Now create quads between consecutive points using the computed per-vertex offsets.
+  // Build quads and (optionally) per-vertex colors.
   auto point_it = points.begin();
   for( size_t i = 0; i < points.size() - 1; i++ )
   {
-    // Get the current and next points.
     auto current = *point_it++;
     auto next    = *point_it;
 
-    // Retrieve the precomputed offsets for these vertices.
     const Eigen::Vector2d& off_current = vertex_offsets[i];
     const Eigen::Vector2d& off_next    = vertex_offsets[i + 1];
 
-    // Define four corners of the quad.
     geometry_msgs::msg::Point p1, p2, p3, p4;
     p1.x = current.x - off_current.x();
     p1.y = current.y - off_current.y();
@@ -231,14 +284,42 @@ create_flat_line_marker( const IterablePoints& points, const std::string& ns, in
     p4.y = next.y + off_next.y();
     p4.z = 0.5;
 
-    // Create two triangles to form the quad.
+    // Tri 1: (p1, p2, p3)
     marker.points.push_back( p1 );
     marker.points.push_back( p2 );
     marker.points.push_back( p3 );
 
+    // Tri 2: (p2, p4, p3)
     marker.points.push_back( p2 );
     marker.points.push_back( p4 );
     marker.points.push_back( p3 );
+
+    if( color_by_accel )
+    {
+      const auto& c_cur = per_point_colors[i];
+      const auto& c_nxt = per_point_colors[i + 1];
+
+      std_msgs::msg::ColorRGBA cr;
+      std_msgs::msg::ColorRGBA cn;
+
+      cr.r = c_cur[0];
+      cr.g = c_cur[1];
+      cr.b = c_cur[2];
+      cr.a = c_cur[3];
+      cn.r = c_nxt[0];
+      cn.g = c_nxt[1];
+      cn.b = c_nxt[2];
+      cn.a = c_nxt[3];
+
+      // Colors must align 1:1 with 'points' for TRIANGLE_LIST.
+      marker.colors.push_back( cr ); // p1
+      marker.colors.push_back( cr ); // p2
+      marker.colors.push_back( cn ); // p3
+
+      marker.colors.push_back( cr ); // p2
+      marker.colors.push_back( cn ); // p4
+      marker.colors.push_back( cn ); // p3
+    }
   }
 
   return marker;

@@ -103,5 +103,13 @@ hsv_to_rgb( float h, float s, float v )
   return { r, g, b, 1.0f }; // Alpha is set to 1.0f
 }
 
+// Map acceleration (m/s^2) to hue: -3 → 0° (red), +3 → 120° (green).
+inline double
+accel_to_hue_deg( double acc )
+{
+  double t = std::clamp( ( acc + 3.0 ) / 6.0, 0.0, 1.0 ); // [-3,3] → [0,1]
+  return t / 3.0;
+}
+
 } // namespace visualizer
 } // namespace adore
