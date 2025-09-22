@@ -56,16 +56,13 @@ private:
   TrajectoryPublishers                                       trajectory_publishers;
 
   /* ---------- subscriptions ------------------------------------------------- */
-  rclcpp::Subscription<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr state_subscription;
-  rclcpp::Subscription<adore_ros2_msgs::msg::InfrastructureInfo>::SharedPtr  infrastructure_info_subscription;
-  std::unordered_map<std::string, rclcpp::SubscriptionBase::SharedPtr>       dynamic_subscriptions;
+  std::unordered_map<std::string, rclcpp::SubscriptionBase::SharedPtr> dynamic_subscriptions;
 
   /* ---------- marker cache -------------------------------------------------- */
   std::unordered_map<std::string, MarkerArray> marker_cache;
 
   /* ---------- configuration / state -------------------------------- */
   std::optional<math::Point2d> visualization_offset_center;
-  math::Point2d                offset{};
   std::string                  maps_folder;
   GridTileCache                grid_tile_cache;
   TileKey                      latest_tile_idx{ -1, -1 };
@@ -73,7 +70,6 @@ private:
   std::string                  map_image_api_key;
   bool                         map_image_grayscale{ true };
   std::string                  ego_vehicle_3d_model_path;
-  bool                         center_ego_vehicle{ true };
 
   /* ---------- dynamic‑subscription helpers --------------------------------- */
   template<typename MsgT>
@@ -95,8 +91,6 @@ private:
   void publish_visualization_frame();
 
   /* ---------- callbacks ----------------------------------------------------- */
-  void vehicle_state_callback( const adore_ros2_msgs::msg::VehicleStateDynamic& msg );
-  void infrastructure_info_callback( const adore_ros2_msgs::msg::InfrastructureInfo& msg );
   void high_frequency_timer_callback();
   void low_frequency_timer_callback();
 

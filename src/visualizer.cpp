@@ -31,23 +31,21 @@ Visualizer::Visualizer( const rclcpp::NodeOptions& options ) :
 void
 Visualizer::load_parameters()
 {
-  declare_parameter( "asset folder", "" );
-  get_parameter( "asset folder", maps_folder );
+  maps_folder                    = declare_parameter<std::string>( "asset folder", "" );
+  ego_vehicle_3d_model_path      = declare_parameter<std::string>( "ego_vehicle_3d_model_path", "low_poly_ngc_model.dae" );
+  whitelist                      = declare_parameter<std::vector<std::string>>( "whitelist", whitelist );
+  map_image_api_key              = declare_parameter<std::string>( "map_image_api_key", "" );
+  map_image_grayscale            = declare_parameter<bool>( "map_image_grayscale", true );
+  visualization_offset_center    = math::Point2d( 0.0, 0.0 );
+  visualization_offset_center->x = declare_parameter<double>( "visualization_offset_x", 0.0 );
+  visualization_offset_center->y = declare_parameter<double>( "visualization_offset_y", 0.0 );
 
-  declare_parameter( "ego_vehicle_3d_model_path", "low_poly_ngc_model.dae" );
-  get_parameter( "ego_vehicle_3d_model_path", ego_vehicle_3d_model_path );
-
-  declare_parameter( "whitelist", whitelist );
-  get_parameter( "whitelist", whitelist );
-
-  declare_parameter( "map_image_api_key", "" );
-  get_parameter( "map_image_api_key", map_image_api_key );
-
-  declare_parameter( "map_image_grayscale", true );
-  get_parameter( "map_image_grayscale", map_image_grayscale );
-
-  declare_parameter( "center_ego_vehicle", true );
-  get_parameter( "center_ego_vehicle", center_ego_vehicle );
+  offset_tf.header.frame_id         = "world";
+  offset_tf.child_frame_id          = "visualization_offset";
+  offset_tf.header.stamp            = now();
+  offset_tf.transform.translation.x = visualization_offset_center->x;
+  offset_tf.transform.translation.y = visualization_offset_center->y;
+  offset_tf.transform.translation.z = 0.0;
 }
 
 void
@@ -71,21 +69,14 @@ Visualizer::update_all_dynamic_subscriptions()
   update_dynamic_subscriptions<adore_ros2_msgs::msg::CautionZone>( "adore_ros2_msgs/msg/CautionZone" );
   update_dynamic_subscriptions<adore_ros2_msgs::msg::Trajectory>( "adore_ros2_msgs/msg/Trajectory" );
   update_dynamic_subscriptions<adore_ros2_msgs::msg::VisualizableObject>( "adore_ros2_msgs/msg/VisualizableObject" );
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::VehicleStateDynamic>( "adore_ros2_msgs/msg/VehicleStateDynamic" );
 }
 
 void
 Visualizer::create_subscribers()
 {
-  tf_buffer   = std::make_shared<tf2_ros::Buffer>( this->get_clock() );
-  tf_listener = std::make_shared<tf2_ros::TransformListener>( *tf_buffer, this );
-
-  state_subscription = create_subscription<adore_ros2_msgs::msg::VehicleStateDynamic>( "vehicle_state_dynamic", 1,
-                                                                                       std::bind( &Visualizer::vehicle_state_callback, this,
-                                                                                                  std::placeholders::_1 ) );
-
-  infrastructure_info_subscription = create_subscription<adore_ros2_msgs::msg::InfrastructureInfo>(
-    "infrastructure_info", 1, std::bind( &Visualizer::infrastructure_info_callback, this, std::placeholders::_1 ) );
-
+  tf_buffer            = std::make_shared<tf2_ros::Buffer>( this->get_clock() );
+  tf_listener          = std::make_shared<tf2_ros::TransformListener>( *tf_buffer, this );
   high_frequency_timer = create_wall_timer( 100ms, std::bind( &Visualizer::high_frequency_timer_callback, this ) );
   low_frequency_timer  = create_wall_timer( 1000ms, std::bind( &Visualizer::low_frequency_timer_callback, this ) );
   update_all_dynamic_subscriptions();
@@ -94,36 +85,21 @@ Visualizer::create_subscribers()
 void
 Visualizer::high_frequency_timer_callback()
 {
-  publish_markers();
-  if( !visualization_offset_center )
-    return;
   publish_visualization_frame();
+  publish_markers();
 }
 
 void
 Visualizer::low_frequency_timer_callback()
 {
   update_all_dynamic_subscriptions();
-  if( !visualization_offset_center )
-    return;
   publish_map_image();
 }
 
 void
 Visualizer::publish_visualization_frame()
 {
-  // initialize visualization transform
-  if( !have_initial_offset )
-  {
-    have_initial_offset               = true;
-    offset_tf.header.frame_id         = "world";
-    offset_tf.child_frame_id          = "visualization_offset";
-    offset_tf.header.stamp            = now();
-    offset_tf.transform.translation.x = visualization_offset_center->x;
-    offset_tf.transform.translation.y = visualization_offset_center->y;
-    offset_tf.transform.translation.z = 0.0;
-  }
-  // Publish the offset transform
+  offset_tf.header.stamp = now();
   tf_broadcaster->sendTransform( offset_tf );
 }
 
@@ -158,33 +134,6 @@ Visualizer::should_subscribe_to_topic( const std::string& candidate_topic_name, 
     return false;
 
   return true;
-}
-
-void
-Visualizer::vehicle_state_callback( const adore_ros2_msgs::msg::VehicleStateDynamic& msg )
-{
-  if( center_ego_vehicle )
-  {
-    // Add the latest odometry message to the buffer with its timestamp
-    auto latest_state           = dynamics::conversions::to_cpp_type( msg );
-    visualization_offset_center = { latest_state.x, latest_state.y };
-  }
-
-  // Convert the message to MarkerArray
-  auto ego_marker_array                     = conversions::to_marker_array( msg );
-  ego_marker_array.markers[0].mesh_resource = "http://localhost:8080/assets/3d_models/" + ego_vehicle_3d_model_path;
-
-  // Publish the MarkerArray
-  marker_cache["ego_vehicle"] = ego_marker_array;
-}
-
-void
-Visualizer::infrastructure_info_callback( const adore_ros2_msgs::msg::InfrastructureInfo& msg )
-{
-  if( !center_ego_vehicle )
-  {
-    visualization_offset_center = { msg.position_x, msg.position_y };
-  }
 }
 
 void
