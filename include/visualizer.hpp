@@ -10,24 +10,38 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  ********************************************************************************/
-
 #pragma once
 #include "adore_dynamics_conversions.hpp"
 #include "adore_map_conversions.hpp"
 #include "adore_math/angles.h"
+#include "adore_ros2_msgs/msg/goal_point.hpp"
+#include "adore_ros2_msgs/msg/node_status.hpp"
 #include "adore_ros2_msgs/msg/traffic_prediction.hpp"
 #include "adore_ros2_msgs/msg/vehicle_state_dynamic.hpp"
+#include <adore_map/route.hpp>
+#include <adore_math/point.h>
 #include <adore_ros2_msgs/msg/infrastructure_info.hpp>
 #include <adore_ros2_msgs/msg/traffic_participant_set.hpp>
 #include <adore_ros2_msgs/msg/trajectory.hpp>
+#include <foxglove_msgs/msg/geo_json.hpp>
 
 #include "map_image_visualization.hpp"
+#include "behavior_visualizer.hpp"
+#include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/msg/nav_sat_fix.hpp"
 #include "tf2_ros/transform_broadcaster.h"
+#include "building_visualization.hpp"
+#include "visualization_primitives.hpp"
 #include "visualizer_conversions.hpp"
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <nlohmann/json.hpp>
+#include "adore_ros2_msgs/msg/node_status.hpp"
+#include "adore_node_status.hpp"
+
+using json = nlohmann::json;
 
 namespace adore
 {
@@ -52,21 +66,31 @@ private:
   using TrajectoryPublishers = std::unordered_map<std::string, rclcpp::Publisher<adore_ros2_msgs::msg::TrajectoryTranspose>::SharedPtr>;
 
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_grid_publisher;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr buildings_publisher;
+  rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr map_location_publisher;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr traffic_light_behavior_publisher;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr vehicle_behavior_publisher;
+  rclcpp::Publisher<foxglove_msgs::msg::GeoJSON>::SharedPtr route_visualization_publisher;
+  rclcpp::Publisher<foxglove_msgs::msg::GeoJSON>::SharedPtr goal_visualization_publisher;
+
   MarkerPublishers                                           marker_publishers;
   TrajectoryPublishers                                       trajectory_publishers;
 
   /* ---------- subscriptions ------------------------------------------------- */
   rclcpp::Subscription<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr state_subscription;
   rclcpp::Subscription<adore_ros2_msgs::msg::InfrastructureInfo>::SharedPtr  infrastructure_info_subscription;
+  rclcpp::Subscription<adore_ros2_msgs::msg::Route>::SharedPtr  route_subscriber;
+  rclcpp::Subscription<adore_ros2_msgs::msg::NodeStatus>::SharedPtr  decision_maker_status_subscriber;
   std::unordered_map<std::string, rclcpp::SubscriptionBase::SharedPtr>       dynamic_subscriptions;
 
   /* ---------- marker cache -------------------------------------------------- */
   std::unordered_map<std::string, MarkerArray> marker_cache;
+  std::vector<buildings::Building> building_cache;
 
   /* ---------- configuration / state -------------------------------- */
   std::optional<math::Point2d> visualization_offset_center;
   math::Point2d                offset{};
-  std::string                  maps_folder;
+  std::string                  assets_folder;
   GridTileCache                grid_tile_cache;
   TileKey                      latest_tile_idx{ -1, -1 };
   std::vector<std::string>     whitelist;
@@ -74,6 +98,8 @@ private:
   bool                         map_image_grayscale{ true };
   std::string                  ego_vehicle_3d_model_path;
   bool                         center_ego_vehicle{ true };
+  std::optional<adore_ros2_msgs::msg::Route> ego_vehicle_route;
+  std::optional<status::NodeStatus> ego_vehicle_decision_maker_status;
 
   /* ---------- dynamic‑subscription helpers --------------------------------- */
   template<typename MsgT>
@@ -91,12 +117,19 @@ private:
 
   /* ---------- regular publishing helpers ----------------------------------- */
   void publish_map_image();
+  void publish_buildings();
+  void publish_map_location();
+  void publish_map_route();
   void publish_markers();
   void publish_visualization_frame();
+  void publish_traffic_light_behavior();
+  void publish_vehicle_behavior();
 
   /* ---------- callbacks ----------------------------------------------------- */
   void vehicle_state_callback( const adore_ros2_msgs::msg::VehicleStateDynamic& msg );
   void infrastructure_info_callback( const adore_ros2_msgs::msg::InfrastructureInfo& msg );
+  void route_callback( const adore_ros2_msgs::msg::Route& msg );
+  void decision_maker_status_callback( const adore_ros2_msgs::msg::NodeStatus& msg );
   void high_frequency_timer_callback();
   void low_frequency_timer_callback();
 
