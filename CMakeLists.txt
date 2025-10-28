@@ -25,6 +25,8 @@ add_executable(${PROJECT}
   src/visualization_primitives.cpp
   src/visualizer.cpp
   src/map_image_visualization.cpp
+  src/building_visualization.cpp
+  src/behavior_visualizer.cpp
   )
 
 target_include_directories(${PROJECT} PRIVATE

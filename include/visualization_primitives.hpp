@@ -10,7 +10,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  ********************************************************************************/
-
 #pragma once
 #include <Eigen/Dense>
 
@@ -125,6 +124,62 @@ create_line_marker( const IterablePoints& points, const std::string& ns, int id,
   marker.color.g = color[1];
   marker.color.b = color[2];
   marker.color.a = color[3];
+
+  return marker;
+}
+
+template<typename IterablePoints>
+Marker
+create_lane_marker(const IterablePoints& left_points, const IterablePoints& right_points, const std::string& ns, int id, const Color& color)
+{
+  Marker marker;
+
+  if( left_points.size() < 2 || right_points.size() < 2)
+    return marker; // Not enough points to form a line.
+
+  marker.ns     = ns;
+  marker.id     = id;
+  marker.type   = Marker::TRIANGLE_LIST; // Using triangles to form quads
+  marker.action = Marker::ADD;
+
+  // Set the color.
+  marker.color.r = color[0];
+  marker.color.g = color[1];
+  marker.color.b = color[2];
+  marker.color.a = color[3];
+
+  for( size_t i = 0; i < left_points.size() - 1; i++ )
+  {
+    auto current_left = left_points[i];
+    auto next_left = left_points[i + 1];
+
+    auto current_right = right_points[i];
+    auto next_right = right_points[i + 1];
+
+    // Define four corners of the quad.
+    geometry_msgs::msg::Point p1, p2, p3, p4;
+    p1.x = current_left.x;
+    p1.y = current_left.y;
+    p1.z = 0.4;
+    p2.x = current_right.x;
+    p2.y = current_right.y;
+    p2.z = 0.4;
+    p3.x = next_left.x;
+    p3.y = next_left.y;
+    p3.z = 0.4;
+    p4.x = next_right.x;
+    p4.y = next_right.y;
+    p4.z = 0.4;
+
+    // Create two triangles to form the quad.
+    marker.points.push_back( p1 );
+    marker.points.push_back( p2 );
+    marker.points.push_back( p3 );
+
+    marker.points.push_back( p2 );
+    marker.points.push_back( p4 );
+    marker.points.push_back( p3 );
+  }
 
   return marker;
 }
