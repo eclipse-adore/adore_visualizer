@@ -1,6 +1,0 @@
-## tf2_ros transforms
-ros-${ROS_DISTRO}-tf2
-ros-${ROS_DISTRO}-tf2-ros
-## Image handling
-libopencv-dev
-ros-${ROS_DISTRO}-cv-bridge

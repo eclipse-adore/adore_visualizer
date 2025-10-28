@@ -208,6 +208,10 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
       marker_array.markers.push_back( line_marker );
     }
     marker_array.markers.push_back( heading_marker );
+
+    auto route_marker               = to_marker_array( participant.participant_data.route );
+    route_marker.markers.front().id = 2000000 + participant.participant_data.tracking_id; // Ensure unique ID for route marker
+    marker_array.markers.insert( marker_array.markers.end(), route_marker.markers.begin(), route_marker.markers.end() );
   }
   auto closed_border = participant_set.validity_area.points;
   if( closed_border.size() > 0 )
@@ -216,6 +220,8 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
     auto boundary_marker = primitives::create_line_marker( closed_border, "boundary", 999, 0.2, colors::soft_red );
     marker_array.markers.push_back( boundary_marker );
   }
+
+
   return marker_array;
 }
 
@@ -247,7 +253,7 @@ to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory )
 
 // Conversion function for odometry to markers
 MarkerArray
-to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& /*msg*/ )
+to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& msg )
 {
   MarkerArray marker_array;
 
@@ -259,7 +265,7 @@ to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& /*msg*/ )
                                                                                              // vehicle
 
   ego_vehicle_marker.frame_locked    = true;
-  ego_vehicle_marker.header.frame_id = "ego_vehicle";
+  ego_vehicle_marker.header.frame_id = msg.header.frame_id;
 
   ego_vehicle_marker.mesh_use_embedded_materials = true;
   marker_array.markers.push_back( ego_vehicle_marker );
