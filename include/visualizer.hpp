@@ -73,6 +73,29 @@ class Visualizer : public rclcpp::Node
 {
 private:
 
+  /* ---------- initialization ----------------------------------------------- */
+  void load_parameters();
+  void create_publishers();
+  void create_subscribers();
+
+  void pre_cache_state_images(); // Since loading of files and images at runtime is expensive, some images shown in visualization will be cached in advance
+  void pre_cache_road_features();
+
+  std::unordered_map<std::string, Image> pre_cached_images; 
+  std::vector<buildings::Building> pre_cached_road_features; // @TODO, Currently the only road feature is buildings, but expand on this in the future
+
+  /* ---------- configuration / state -------------------------------- */
+  std::vector<std::string>     whitelist;
+  std::string                  assets_folder;
+  bool show_map_image = false;
+  bool show_road_features = false;
+
+  std::string                  map_image_api_key;
+  bool                         map_image_grayscale{ true };
+
+  GridTileCache                grid_tile_cache;
+  TileKey                      latest_tile_idx{ -1, -1 };
+
   /* ---------- timing & TF -------------------------------------------------- */
   rclcpp::TimerBase::SharedPtr high_frequency_timer;
   rclcpp::TimerBase::SharedPtr low_frequency_timer;
@@ -83,22 +106,32 @@ private:
   bool                                           have_initial_offset{ false };
   geometry_msgs::msg::TransformStamped           offset_tf;
 
+  /* ---------- callbacks ----------------------------------------------------- */
+  void high_frequency_timer_callback();
+  void low_frequency_timer_callback();
+
+  /* ---------- regular publishing helpers ----------------------------------- */
+  void publish_map_image();
+  void publish_road_features();
+
+  void publish_markers();
+  void publish_nav_sat_fix();
+  void publish_geo_json();
+  void publish_images();
+
+  void publish_visualization_frame();
+  
   /* ---------- publishers ---------------------------------------------------- */
   using MarkerPublishers = std::unordered_map<std::string, rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr>;
   using NavSatFixPublishers = std::unordered_map<std::string, rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr>;
   using GeoJSONPublishers = std::unordered_map<std::string, rclcpp::Publisher<foxglove_msgs::msg::GeoJSON>::SharedPtr>;
-
   using ImagePublishers = std::unordered_map<std::string, rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr>;
 
+  // @TODO, need to re-implement trajectory transpose behavior
   using TrajectoryPublishers = std::unordered_map<std::string, rclcpp::Publisher<adore_ros2_msgs::msg::TrajectoryTranspose>::SharedPtr>;
 
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_grid_publisher;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr buildings_publisher;
-  rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr map_location_publisher;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr traffic_light_behavior_publisher;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr vehicle_behavior_publisher;
-  rclcpp::Publisher<foxglove_msgs::msg::GeoJSON>::SharedPtr route_visualization_publisher;
-  rclcpp::Publisher<foxglove_msgs::msg::GeoJSON>::SharedPtr goal_visualization_publisher;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr road_feature_publisher;
 
   MarkerPublishers                                           marker_publishers;
   NavSatFixPublishers                                        nav_sat_fix_publisher;
@@ -108,10 +141,6 @@ private:
   ImagePublishers                                            image_behavior_publishers;
 
   /* ---------- subscriptions ------------------------------------------------- */
-  rclcpp::Subscription<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr state_subscription;
-  rclcpp::Subscription<adore_ros2_msgs::msg::InfrastructureInfo>::SharedPtr  infrastructure_info_subscription;
-  rclcpp::Subscription<adore_ros2_msgs::msg::Route>::SharedPtr  route_subscriber;
-  rclcpp::Subscription<adore_ros2_msgs::msg::NodeStatus>::SharedPtr  decision_maker_status_subscriber;
   std::unordered_map<std::string, rclcpp::SubscriptionBase::SharedPtr>       dynamic_subscriptions;
 
   /* ---------- visualizer cache -------------------------------------------------- */
@@ -120,24 +149,8 @@ private:
   std::unordered_map<std::string, GeoJSON> geo_json_cache; 
   std::unordered_map<std::string, Image> images_traffic_cache; 
   std::unordered_map<std::string, Image> images_behavior_cache; 
-  std::vector<buildings::Building> building_cache;
 
-  std::unordered_map<std::string, Image> pre_cached_images; // Since loading of files and images at runtime is expensive, some images shown in visualization will be cached in advance
-  void load_state_images();
 
-  /* ---------- configuration / state -------------------------------- */
-  std::optional<math::Point2d> visualization_offset_center;
-  math::Point2d                offset{};
-  std::string                  assets_folder;
-  GridTileCache                grid_tile_cache;
-  TileKey                      latest_tile_idx{ -1, -1 };
-  std::vector<std::string>     whitelist;
-  std::string                  map_image_api_key;
-  bool                         map_image_grayscale{ true };
-  std::string                  ego_vehicle_3d_model_path;
-  bool                         center_ego_vehicle{ true };
-  std::optional<adore_ros2_msgs::msg::Route> ego_vehicle_route;
-  std::optional<status::NodeStatus> ego_vehicle_decision_maker_status;
 
   /* ---------- dynamic‑subscription helpers --------------------------------- */
   template<typename MsgT>
@@ -173,31 +186,8 @@ private:
     
   void update_all_dynamic_subscriptions();
 
-  /* ---------- initialization ----------------------------------------------- */
-  void load_parameters();
-  void create_publishers();
-  void create_subscribers();
 
-  /* ---------- regular publishing helpers ----------------------------------- */
-  void publish_map_image();
-  void publish_buildings();
-  void publish_map_location();
-  void publish_map_route();
-  void publish_markers();
-  void publish_nav_sat_fix();
-  void publish_geo_json();
-  void publish_images();
-  void publish_visualization_frame();
-  void publish_traffic_light_behavior();
-  void publish_vehicle_behavior();
 
-  /* ---------- callbacks ----------------------------------------------------- */
-  void vehicle_state_callback( const adore_ros2_msgs::msg::VehicleStateDynamic& msg );
-  void infrastructure_info_callback( const adore_ros2_msgs::msg::InfrastructureInfo& msg );
-  void route_callback( const adore_ros2_msgs::msg::Route& msg );
-  void decision_maker_status_callback( const adore_ros2_msgs::msg::NodeStatus& msg );
-  void high_frequency_timer_callback();
-  void low_frequency_timer_callback();
 
   /* ---------- misc. utilities ---------------------------------------------- */
   void change_frame( Marker& marker, const std::string& target_frame );
@@ -352,7 +342,7 @@ Visualizer::image_callback_behavior(const std::string& topic_name, const MsgT& m
 
   for ( const std::string& name : image_names )
   {
-    if ( !pre_cached_images.contains(name ) )
+    if ( !pre_cached_images.contains( name ) )
       continue;
     
     Image image = pre_cached_images[name];
