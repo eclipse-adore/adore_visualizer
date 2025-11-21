@@ -13,6 +13,7 @@
 #include "visualizer.hpp"
 #include "adore_ros2_msgs/msg/goal_point.hpp"
 #include "adore_ros2_msgs/msg/node_status.hpp"
+#include "adore_ros2_msgs/msg/vehicle_state_dynamic.hpp"
 #include <adore_map/lat_long_conversions.hpp>
 #include <adore_map_conversions.hpp>
 #include <adore_math/point.h>
@@ -26,6 +27,9 @@
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "visualization_primitives.hpp"
 #include <planning/optinlc_trajectory_optimizer.hpp>
+#include <rclcpp/utilities.hpp>
+#include <type_traits>
+
 using namespace std::chrono_literals;
 
 namespace adore
@@ -47,51 +51,92 @@ Visualizer::load_parameters()
   declare_parameter( "asset folder", "" );
   get_parameter( "asset folder", assets_folder );
 
-  declare_parameter( "ego_vehicle_3d_model_path", "low_poly_ngc_model.dae" );
-  get_parameter( "ego_vehicle_3d_model_path", ego_vehicle_3d_model_path );
-
   declare_parameter( "whitelist", whitelist );
   get_parameter( "whitelist", whitelist );
 
-  declare_parameter( "map_image_api_key", "" );
-  get_parameter( "map_image_api_key", map_image_api_key );
+  visualization_offset_center    = math::Point2d( 0.0, 0.0 );
+  visualization_offset_center->x = declare_parameter<double>( "visualization_offset_x", 0.0 );
+  visualization_offset_center->y = declare_parameter<double>( "visualization_offset_y", 0.0 );
 
-  declare_parameter( "map_image_grayscale", true );
-  get_parameter( "map_image_grayscale", map_image_grayscale );
+  offset_tf.header.frame_id         = "world";
+  offset_tf.child_frame_id          = "visualization_offset";
+  offset_tf.header.stamp            = now();
+  offset_tf.transform.translation.x = visualization_offset_center->x;
+  offset_tf.transform.translation.y = visualization_offset_center->y;
+  offset_tf.transform.translation.z = 0.0;
 
-  declare_parameter( "center_ego_vehicle", true );
-  get_parameter( "center_ego_vehicle", center_ego_vehicle );
+  // declare_parameter( "ego_vehicle_3d_model_path", "low_poly_ngc_model.dae" );
+  // get_parameter( "ego_vehicle_3d_model_path", ego_vehicle_3d_model_path );
+  // declare_parameter( "map_image_api_key", "" );
+  // get_parameter( "map_image_api_key", map_image_api_key );
 
+  // declare_parameter( "map_image_grayscale", true );
+  // get_parameter( "map_image_grayscale", map_image_grayscale );
+
+  // declare_parameter( "center_ego_vehicle", true );
+  // get_parameter( "center_ego_vehicle", center_ego_vehicle );
+
+  // This is to pre-cache images used in visualization due to the expensive runtime cost
+  load_state_images();
   building_cache = buildings::extract_buildings_from_road_features(assets_folder);
 }
 
 void
-Visualizer::create_publishers()
+Visualizer::load_state_images()
 {
-  tf_broadcaster                   = std::make_shared<tf2_ros::TransformBroadcaster>( this );
-  map_grid_publisher               = create_publisher<nav_msgs::msg::OccupancyGrid>( "map_grid", 1 );
-  buildings_publisher = create_publisher<visualization_msgs::msg::MarkerArray>( "buildings", 1 );
-  traffic_light_behavior_publisher = create_publisher<sensor_msgs::msg::Image>( "traffic_light_behavior", 1 );
-  vehicle_behavior_publisher = create_publisher<sensor_msgs::msg::Image>( "vehicle_behavior", 1 );
-  map_location_publisher = create_publisher<sensor_msgs::msg::NavSatFix>( "vehicle_location", 1 );
-  route_visualization_publisher = create_publisher<foxglove_msgs::msg::GeoJSON>( "route_visualization", 1 );
-  goal_visualization_publisher = create_publisher<foxglove_msgs::msg::GeoJSON>( "goal_visualization", 1 );
-  marker_publishers["ego_vehicle"] = create_publisher<visualization_msgs::msg::MarkerArray>( "visualize_ego_vehicle", 1 );
-}
+  std::optional<Image> traffic_light_gray_image = primitives::load_image(assets_folder + "/images/traffic_light_gray.png");
+  if ( traffic_light_gray_image.has_value() )
+  {
+    pre_cached_images["traffic_light_gray"] = traffic_light_gray_image.value();
+  }
+  
+  std::optional<Image> traffic_light_red_image = primitives::load_image(assets_folder + "/images/traffic_light_red.png");
+  if ( traffic_light_red_image.has_value() )
+  {
+    pre_cached_images["traffic_light_red"] = traffic_light_red_image.value();
+  }
 
-void
-Visualizer::update_all_dynamic_subscriptions()
-{
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::TrafficParticipantSet>( "adore_ros2_msgs/msg/TrafficParticipantSet" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::SafetyCorridor>( "adore_ros2_msgs/msg/SafetyCorridor" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::Map>( "adore_ros2_msgs/msg/Map" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::Route>( "adore_ros2_msgs/msg/Route" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::GoalPoint>( "adore_ros2_msgs/msg/GoalPoint" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::TrafficSignals>( "adore_ros2_msgs/msg/TrafficSignals" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::Waypoints>( "adore_ros2_msgs/msg/Waypoints" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::CautionZone>( "adore_ros2_msgs/msg/CautionZone" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::Trajectory>( "adore_ros2_msgs/msg/Trajectory" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::VisualizableObject>( "adore_ros2_msgs/msg/VisualizableObject" );
+  std::optional<Image> traffic_light_yellow_to_red_image = primitives::load_image(assets_folder + "/images/traffic_light_yellow_to_red.png");
+  if ( traffic_light_yellow_to_red_image.has_value() )
+  {
+    pre_cached_images["traffic_light_yellow_to_red"] = traffic_light_yellow_to_red_image.value();
+  }
+
+  std::optional<Image> traffic_light_yellow_to_green_image = primitives::load_image(assets_folder + "/images/traffic_light_yellow_to_green.png");
+  if ( traffic_light_yellow_to_green_image.has_value() )
+  {
+    pre_cached_images["traffic_light_yellow_to_green"] = traffic_light_yellow_to_green_image.value();
+  }
+
+  std::optional<Image> traffic_light_green_image = primitives::load_image(assets_folder + "/images/traffic_light_green.png");
+  if ( traffic_light_green_image.has_value() )
+  {
+    pre_cached_images["traffic_light_green"] = traffic_light_green_image.value();
+  }
+
+  std::optional<Image> autonomous_car_on_road_image = primitives::load_image(assets_folder + "/images/autonomous_car_on_road.png");
+  if ( autonomous_car_on_road_image .has_value() )
+  {
+    pre_cached_images["autonomous_car_on_road"] = autonomous_car_on_road_image.value();
+  }
+
+  std::optional<Image> autonomous_car_on_road_other_vehicle_close_image = primitives::load_image(assets_folder + "/images/autonomous_car_on_road_other_vehicle_close.png");
+  if ( autonomous_car_on_road_other_vehicle_close_image .has_value() )
+  {
+    pre_cached_images["autonomous_car_on_road_other_vehicle_close"] = autonomous_car_on_road_other_vehicle_close_image.value();
+  }
+
+  std::optional<Image> autonomous_car_on_road_other_vehicle_middle_image = primitives::load_image(assets_folder + "/images/autonomous_car_on_road_other_vehicle_middle.png");
+  if ( autonomous_car_on_road_other_vehicle_middle_image.has_value() )
+  {
+    pre_cached_images["autonomous_car_on_road_other_vehicle_middle"] = autonomous_car_on_road_other_vehicle_middle_image.value();
+  }
+
+  std::optional<Image> autonomous_car_on_road_other_vehicle_seen_image = primitives::load_image(assets_folder + "/images/autonomous_car_on_road_other_vehicle_seen.png");
+  if ( autonomous_car_on_road_other_vehicle_seen_image .has_value() )
+  {
+    pre_cached_images["autonomous_car_on_road_other_vehicle_seen"] = autonomous_car_on_road_other_vehicle_seen_image.value();
+  }
 }
 
 void
@@ -100,15 +145,15 @@ Visualizer::create_subscribers()
   tf_buffer   = std::make_shared<tf2_ros::Buffer>( this->get_clock() );
   tf_listener = std::make_shared<tf2_ros::TransformListener>( *tf_buffer, this );
 
-  state_subscription = create_subscription<adore_ros2_msgs::msg::VehicleStateDynamic>( "vehicle_state/dynamic", 1,
-                                                                                       std::bind( &Visualizer::vehicle_state_callback, this,
-                                                                                                  std::placeholders::_1 ) );
+  // state_subscription = create_subscription<adore_ros2_msgs::msg::VehicleStateDynamic>( "vehicle_state/dynamic", 1,
+  //                                                                                      std::bind( &Visualizer::vehicle_state_callback, this,
+  //                                                                                                 std::placeholders::_1 ) );
 
-  route_subscriber = create_subscription<adore_ros2_msgs::msg::Route>( "route", 1, std::bind( &Visualizer::route_callback, this, std::placeholders::_1 ) );
-  decision_maker_status_subscriber = create_subscription<adore_ros2_msgs::msg::NodeStatus>( "decision_maker_status", 1, std::bind( &Visualizer::decision_maker_status_callback, this, std::placeholders::_1 ) );
+  // route_subscriber = create_subscription<adore_ros2_msgs::msg::Route>( "route", 1, std::bind( &Visualizer::route_callback, this, std::placeholders::_1 ) );
+  // decision_maker_status_subscriber = create_subscription<adore_ros2_msgs::msg::NodeStatus>( "decision_maker_status", 1, std::bind( &Visualizer::decision_maker_status_callback, this, std::placeholders::_1 ) );
 
-  infrastructure_info_subscription = create_subscription<adore_ros2_msgs::msg::InfrastructureInfo>(
-    "infrastructure_info", 1, std::bind( &Visualizer::infrastructure_info_callback, this, std::placeholders::_1 ) );
+  // infrastructure_info_subscription = create_subscription<adore_ros2_msgs::msg::InfrastructureInfo>(
+  //   "infrastructure_info", 1, std::bind( &Visualizer::infrastructure_info_callback, this, std::placeholders::_1 ) );
 
   high_frequency_timer = create_wall_timer( 100ms, std::bind( &Visualizer::high_frequency_timer_callback, this ) );
   low_frequency_timer  = create_wall_timer( 1000ms, std::bind( &Visualizer::low_frequency_timer_callback, this ) );
@@ -116,44 +161,70 @@ Visualizer::create_subscribers()
 }
 
 void
+Visualizer::create_publishers()
+{
+  tf_broadcaster                   = std::make_shared<tf2_ros::TransformBroadcaster>( this );
+
+
+  // Most publishers are dynamic and generated later
+
+  // map_grid_publisher               = create_publisher<nav_msgs::msg::OccupancyGrid>( "map_grid", 1 );
+  // buildings_publisher = create_publisher<visualization_msgs::msg::MarkerArray>( "buildings", 1 );
+  // traffic_light_behavior_publisher = create_publisher<sensor_msgs::msg::Image>( "traffic_light_behavior", 1 );
+  // vehicle_behavior_publisher = create_publisher<sensor_msgs::msg::Image>( "vehicle_behavior", 1 );
+  // map_location_publisher = create_publisher<sensor_msgs::msg::NavSatFix>( "vehicle_location", 1 );
+  // route_visualization_publisher = create_publisher<foxglove_msgs::msg::GeoJSON>( "route_visualization", 1 );
+  // goal_visualization_publisher = create_publisher<foxglove_msgs::msg::GeoJSON>( "goal_visualization", 1 );
+  // marker_publishers["ego_vehicle"] = create_publisher<visualization_msgs::msg::MarkerArray>( "visualize_ego_vehicle", 1 );
+}
+
+void
+Visualizer::update_all_dynamic_subscriptions()
+{
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::VehicleStateDynamic>( "adore_ros2_msgs/msg/VehicleStateDynamic" ); // Used for navsatfix (will also be used for marker)
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::NodeStatus>( "adore_ros2_msgs/msg/NodeStatus" );
+  // update_dynamic_subscriptions<adore_ros2_msgs::msg::TrafficParticipantSet>( "adore_ros2_msgs/msg/TrafficParticipantSet" );
+  // update_dynamic_subscriptions<adore_ros2_msgs::msg::SafetyCorridor>( "adore_ros2_msgs/msg/SafetyCorridor" );
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::Map>( "adore_ros2_msgs/msg/Map" );
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::Route>( "adore_ros2_msgs/msg/Route" );
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::GoalPoint>( "adore_ros2_msgs/msg/GoalPoint" );
+  // update_dynamic_subscriptions<adore_ros2_msgs::msg::TrafficSignals>( "adore_ros2_msgs/msg/TrafficSignals" );
+  // update_dynamic_subscriptions<adore_ros2_msgs::msg::Waypoints>( "adore_ros2_msgs/msg/Waypoints" );
+  // update_dynamic_subscriptions<adore_ros2_msgs::msg::CautionZone>( "adore_ros2_msgs/msg/CautionZone" );
+  // update_dynamic_subscriptions<adore_ros2_msgs::msg::Trajectory>( "adore_ros2_msgs/msg/Trajectory" );
+  // update_dynamic_subscriptions<adore_ros2_msgs::msg::VisualizableObject>( "adore_ros2_msgs/msg/VisualizableObject" );
+}
+
+void
 Visualizer::high_frequency_timer_callback()
 {
   publish_markers();
-  if( !visualization_offset_center )
-    return;
+  publish_nav_sat_fix();
+  publish_geo_json();
+  publish_images();
+
   publish_visualization_frame();
-  publish_map_location();
+  // publish_map_location();
 }
 
 void
 Visualizer::low_frequency_timer_callback()
 {
   update_all_dynamic_subscriptions();
-  if( !visualization_offset_center )
-    return;
-  publish_map_image();
-  publish_buildings();
-  publish_map_route();
-  publish_traffic_light_behavior();
-  publish_vehicle_behavior();
+
+  // publish_map_image();
+  // publish_buildings();
+  // publish_map_route();
+  // publish_traffic_light_behavior();
+  // publish_vehicle_behavior();
 
 }
 
 void
 Visualizer::publish_visualization_frame()
 {
-  // initialize visualization transform
-  if( !have_initial_offset )
-  {
-    have_initial_offset               = true;
-    offset_tf.header.frame_id         = "world";
-    offset_tf.child_frame_id          = "visualization_offset";
-    offset_tf.header.stamp            = now();
-    offset_tf.transform.translation.x = visualization_offset_center->x;
-    offset_tf.transform.translation.y = visualization_offset_center->y;
-    offset_tf.transform.translation.z = 0.0;
-  }
-  // Publish the offset transform
+
+  offset_tf.header.stamp = now();
   tf_broadcaster->sendTransform( offset_tf );
 }
 
@@ -165,6 +236,50 @@ Visualizer::publish_markers()
     if( marker_publishers.find( name ) != marker_publishers.end() )
     {
       marker_publishers[name]->publish( marker );
+    }
+  }
+}
+
+void
+Visualizer::publish_nav_sat_fix()
+{
+  for( const auto& [name, fix] : nav_sat_fix_cache )
+  {
+    if( nav_sat_fix_publisher.find( name ) != nav_sat_fix_publisher.end() )
+    {
+      nav_sat_fix_publisher[name]->publish( fix );
+    }
+  }
+}
+
+void
+Visualizer::publish_geo_json()
+{
+  for( const auto& [name, geo] : geo_json_cache )
+  {
+    if( geo_json_publisher.find( name ) != geo_json_publisher.end() )
+    {
+      geo_json_publisher[name]->publish( geo );
+    }
+  }
+}
+
+void
+Visualizer::publish_images()
+{
+  for( const auto& [name, img] : images_traffic_cache )
+  {
+    if( image_traffic_light_publishers.find( name ) != image_traffic_light_publishers.end() )
+    {
+      image_traffic_light_publishers[name]->publish( img );
+    }
+  }
+
+  for( const auto& [name, img] : images_behavior_cache )
+  {
+    if( image_behavior_publishers.find( name ) != image_behavior_publishers.end() )
+    {
+      image_behavior_publishers[name]->publish( img );
     }
   }
 }
@@ -201,11 +316,11 @@ Visualizer::vehicle_state_callback( const adore_ros2_msgs::msg::VehicleStateDyna
   }
 
   // Convert the message to MarkerArray
-  auto ego_marker_array                     = conversions::to_marker_array( msg );
-  ego_marker_array.markers[0].mesh_resource = "http://localhost:8080/assets/3d_models/" + ego_vehicle_3d_model_path;
+  // auto ego_marker_array                     = conversions::to_marker_array( msg );
+  // ego_marker_array.markers[0].mesh_resource = "http://localhost:8080/assets/3d_models/" + ego_vehicle_3d_model_path;
 
   // Publish the MarkerArray
-  marker_cache["ego_vehicle"] = ego_marker_array;
+  // marker_cache["ego_vehicle"] = ego_marker_array;
 }
 
 void
@@ -421,7 +536,6 @@ Visualizer::decision_maker_status_callback( const adore_ros2_msgs::msg::NodeStat
 {
   ego_vehicle_decision_maker_status = status::NodeStatus( msg );
 }
-
 
 } // namespace visualizer
 } // namespace adore

@@ -15,6 +15,7 @@
 #include "adore_map_conversions.hpp"
 #include "adore_math/angles.h"
 #include "adore_ros2_msgs/msg/goal_point.hpp"
+#include "adore_ros2_msgs/msg/node_status.hpp"
 #include "adore_ros2_msgs/msg/route.hpp"
 #include "adore_ros2_msgs/msg/trajectory.hpp"
 #include <adore_ros2_msgs/msg/caution_zone.hpp>
@@ -36,6 +37,13 @@
 #include <tf2_ros/transform_listener.h>
 #include <visualization_msgs/msg/marker_array.hpp>
 
+#include "adore_ros2_msgs/msg/vehicle_state_dynamic.hpp"
+#include <adore_map/lat_long_conversions.hpp>
+
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
+
 namespace adore
 {
 namespace visualizer
@@ -43,7 +51,6 @@ namespace visualizer
 
 namespace conversions
 {
-
 
 // Helper functions to convert messages to MarkerArray
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& msg );
@@ -68,6 +75,13 @@ MarkerArray to_marker_array( const adore_ros2_msgs::msg::Waypoints& waypoints_ms
 
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::VisualizableObject& msg );
 
+NavSatFix to_nav_sat_fix( const adore_ros2_msgs::msg::VehicleStateDynamic& vehicle_state_dynamic );
+
+GeoJSON to_geo_json( const adore_ros2_msgs::msg::GoalPoint& goal_point );
+
+GeoJSON to_geo_json( const adore_ros2_msgs::msg::Route& route );
+
+std::vector<std::string> to_images( const adore_ros2_msgs::msg::NodeStatus& status );
 
 } // namespace conversions
 } // namespace visualizer

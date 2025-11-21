@@ -11,7 +11,8 @@
  * SPDX-License-Identifier: EPL-2.0
  ********************************************************************************/
 #include "visualizer_conversions.hpp"
-
+#include <adore_math/angles.h>
+#include <adore_node_status.hpp>
 #include "color_palette.hpp"
 #include "visualization_primitives.hpp"
 #include <rclcpp/duration.hpp>
@@ -251,19 +252,21 @@ to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory )
 
 // Conversion function for odometry to markers
 MarkerArray
-to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& /*msg*/ )
+to_marker_array( const adore_ros2_msgs::msg::VehicleStateDynamic& msg )
 {
   MarkerArray marker_array;
 
-  auto ego_vehicle_marker = primitives::create_3d_object_marker( 0, 0,
+  // @TODO, this does not work right now!
+  auto ego_vehicle_marker = primitives::create_3d_object_marker( msg.x, msg.y,
                                                                  0.0, // Z height
                                                                  1,   // scale
-                                                                 0.0, "ego_vehicle", 0, colors::blue,
+                                                                 msg.steering_angle + 3.14 / 2.0, // angle
+                                                                 "ego_vehicle", 0, colors::blue,
                                                                  "low_poly_ngc_model.dae" ); // Create a rectangle marker for the ego
                                                                                              // vehicle
 
-  ego_vehicle_marker.frame_locked    = true;
-  ego_vehicle_marker.header.frame_id = "ego_vehicle";
+  // ego_vehicle_marker.frame_locked    = true;
+  // ego_vehicle_marker.header.frame_id = "ego_vehicle";
 
   ego_vehicle_marker.mesh_use_embedded_materials = true;
   marker_array.markers.push_back( ego_vehicle_marker );
@@ -396,6 +399,147 @@ to_marker_array( const adore_ros2_msgs::msg::CautionZone& caution_zone )
 
   return marker_array;
 }
+
+NavSatFix
+to_nav_sat_fix( const adore_ros2_msgs::msg::VehicleStateDynamic& vehicle_state_dynamic )
+{
+  NavSatFix nav_sat_fix;
+ 
+  std::vector<double> lat_lon = map::convert_utm_to_lat_lon(vehicle_state_dynamic.x, vehicle_state_dynamic.y, 32, "U");
+
+  nav_sat_fix.latitude = lat_lon[0];
+  nav_sat_fix.longitude = lat_lon[1];
+
+  return nav_sat_fix;
+}
+
+
+GeoJSON
+to_geo_json( const adore_ros2_msgs::msg::GoalPoint& goal_point)
+{
+  auto goal_position_lat_lon = map::convert_utm_to_lat_lon(goal_point.x_position, goal_point.y_position, 32, "U");
+
+  json goal_geojson = {
+      {"type", "FeatureCollection"},
+      {"features", json::array({
+        {
+          {"type", "Feature"},
+          {"properties", {{"name", "My Point"}, {"style", {{"color", "#ff0000"}}}}},
+          {"geometry", {
+            {"type", "Point"},
+            {"coordinates", json::array({goal_position_lat_lon[1], goal_position_lat_lon[0]})}
+          }}
+        }
+      })}
+    };
+
+  foxglove_msgs::msg::GeoJSON goal_map;
+  goal_map.geojson = goal_geojson.dump();
+
+  return goal_map;
+}
+
+GeoJSON to_geo_json( const adore_ros2_msgs::msg::Route& route)
+{
+  auto route_json_array = json::array({});
+
+  for ( const auto& point : route.center_points )
+  {
+    auto route_point_lat_lon = map::convert_utm_to_lat_lon(point.x, point.y, 32, "U");
+    route_json_array.push_back( { route_point_lat_lon[1], route_point_lat_lon[0] } );
+  }
+
+  json path = {
+      {"type", "FeatureCollection"},
+      {"features", json::array({
+        {
+          {"type", "Feature"},
+          {"properties", {
+            {"name", "Route Path"},
+            {"style", {
+              {"color", "#dfd331"},
+              {"weight", 3},
+              {"opacity", 1.0}
+            }}
+          }},
+          {"geometry", {
+            {"type", "LineString"},
+            {"coordinates", route_json_array }
+          }}
+        }
+      })}
+    };
+
+  foxglove_msgs::msg::GeoJSON route_map;
+  route_map.geojson = path.dump();
+
+  return route_map;
+}
+
+// @TODO, find a better naming
+std::vector<std::string> to_images( const adore_ros2_msgs::msg::NodeStatus& status)
+{
+  auto node_status = status::NodeStatus(status);
+
+  std::vector<std::string> image_names;
+
+  auto traffic_light_state = node_status.get_info<int>("nearest_traffic_light_signal");
+
+  if ( traffic_light_state.has_value() )
+  {
+    switch (traffic_light_state.value())
+    {
+      case 0:
+      {
+        image_names.push_back("traffic_light_red");
+        break;
+      }
+      case 1: // This case needs to be improved
+      {
+        image_names.push_back("traffic_light_yellow_to_red");
+        break;
+      }
+      case 2:
+      {
+        image_names.push_back("traffic_light_green");
+        break;
+      }
+      case 3:
+      {
+        image_names.push_back("traffic_light_gray");
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  auto distance_to_vehicle_in_front = node_status.get_info<float>("obstacle_distance");
+
+  std::string distance_to_vehicle_in_front_image_title = "";
+  if ( distance_to_vehicle_in_front.has_value() )
+  {
+    float distance_to_nearest_participant = distance_to_vehicle_in_front.value();
+    
+    if ( distance_to_nearest_participant > 20.0 )
+      distance_to_vehicle_in_front_image_title = "autonomous_car_on_road";
+
+    if ( distance_to_nearest_participant < 20.0 )
+      distance_to_vehicle_in_front_image_title = "autonomous_car_on_road_other_vehicle_seen";
+
+    if ( distance_to_nearest_participant < 10.0 )
+      distance_to_vehicle_in_front_image_title = "autonomous_car_on_road_other_vehicle_middle";
+
+    if ( distance_to_nearest_participant < 5.0 )
+      distance_to_vehicle_in_front_image_title = "autonomous_car_on_road_other_vehicle_close";
+  }
+
+  if ( distance_to_vehicle_in_front_image_title != "")
+    image_names.push_back(distance_to_vehicle_in_front_image_title);
+
+  return image_names;
+}
+
 } // namespace conversions
 } // namespace visualizer
 } // namespace adore
