@@ -35,6 +35,7 @@ namespace buildings
 
     if ( !features_file.is_open() ) // If it was unable to read a file
     {
+      std::cerr << "Unable to load road features, file or path is invalid (" << road_features_file_path << ")" << std::endl;
       return buildings_in_file;
     }
 

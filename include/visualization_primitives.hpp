@@ -26,6 +26,14 @@
 #include <tf2/utils.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include "sensor_msgs/msg/nav_sat_fix.hpp"
+#include <foxglove_msgs/msg/geo_json.hpp>
+#include "sensor_msgs/msg/image.hpp"
+#include <optional>
+
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/opencv.hpp>
+#include "cv_bridge/cv_bridge.hpp"
 
 namespace adore
 {
@@ -35,9 +43,14 @@ namespace visualizer
 using Marker      = visualization_msgs::msg::Marker;
 using MarkerArray = visualization_msgs::msg::MarkerArray;
 
+using NavSatFix = sensor_msgs::msg::NavSatFix;
+
+using GeoJSON = foxglove_msgs::msg::GeoJSON;
+
+using Image = sensor_msgs::msg::Image;
+
 namespace primitives
 {
-
 
 // Helper to create a rectangle (or cube) marker
 Marker create_rectangle_marker( double x, double y, double z, double length, double width, double height, double heading,
@@ -296,6 +309,9 @@ create_flat_line_marker( const IterablePoints& points, const std::string& ns, in
 
   return marker;
 }
+
+std::optional<Image>
+load_image( const std::string& image_file_path );
 
 } // namespace primitives
 

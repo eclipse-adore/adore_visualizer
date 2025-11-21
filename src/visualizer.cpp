@@ -13,6 +13,7 @@
 #include "visualizer.hpp"
 #include "adore_ros2_msgs/msg/goal_point.hpp"
 #include "adore_ros2_msgs/msg/node_status.hpp"
+#include "adore_ros2_msgs/msg/vehicle_state_dynamic.hpp"
 #include <adore_map/lat_long_conversions.hpp>
 #include <adore_map_conversions.hpp>
 #include <adore_math/point.h>
@@ -26,6 +27,9 @@
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "visualization_primitives.hpp"
 #include <planning/optinlc_trajectory_optimizer.hpp>
+#include <rclcpp/utilities.hpp>
+#include <type_traits>
+
 using namespace std::chrono_literals;
 
 namespace adore
@@ -47,51 +51,121 @@ Visualizer::load_parameters()
   declare_parameter( "asset folder", "" );
   get_parameter( "asset folder", assets_folder );
 
-  declare_parameter( "ego_vehicle_3d_model_path", "low_poly_ngc_model.dae" );
-  get_parameter( "ego_vehicle_3d_model_path", ego_vehicle_3d_model_path );
-
   declare_parameter( "whitelist", whitelist );
   get_parameter( "whitelist", whitelist );
 
-  declare_parameter( "map_image_api_key", "" );
-  get_parameter( "map_image_api_key", map_image_api_key );
+  declare_parameter( "show_map_image", show_map_image );
+  get_parameter( "show_map_image", show_map_image );
 
-  declare_parameter( "map_image_grayscale", true );
-  get_parameter( "map_image_grayscale", map_image_grayscale );
+  if ( show_map_image )
+  {
+    declare_parameter( "map_image_api_key", map_image_api_key);
+    get_parameter( "map_image_api_key", map_image_api_key);
 
-  declare_parameter( "center_ego_vehicle", true );
-  get_parameter( "center_ego_vehicle", center_ego_vehicle );
+    declare_parameter( "map_image_grayscale", map_image_grayscale);
+    get_parameter( "map_image_grayscale", map_image_grayscale);
+  }
 
-  building_cache = buildings::extract_buildings_from_road_features(assets_folder);
+  declare_parameter( "show_road_features", show_road_features);
+  get_parameter( "show_road_features", show_road_features);
+
+  offset_tf.header.frame_id         = "world";
+  offset_tf.child_frame_id          = "visualization_offset";
+  offset_tf.header.stamp            = now();
+
+  offset_tf.transform.translation.x = declare_parameter("visualization_offset_x", 0.0);
+  offset_tf.transform.translation.y = declare_parameter("visualization_offset_y", 0.0);
+  offset_tf.transform.translation.z = 0.0;
+
+  // This is to pre-cache images used in visualization due to the expensive runtime cost
+  pre_cache_state_images();
+  pre_cache_road_features();
+}
+
+void
+Visualizer::pre_cache_state_images()
+{
+  std::optional<Image> traffic_light_gray_image = primitives::load_image(assets_folder + "/images/traffic_light_gray.png");
+  if ( traffic_light_gray_image.has_value() )
+  {
+    pre_cached_images["traffic_light_gray"] = traffic_light_gray_image.value();
+  }
+  
+  std::optional<Image> traffic_light_red_image = primitives::load_image(assets_folder + "/images/traffic_light_red.png");
+  if ( traffic_light_red_image.has_value() )
+  {
+    pre_cached_images["traffic_light_red"] = traffic_light_red_image.value();
+  }
+
+  std::optional<Image> traffic_light_yellow_to_red_image = primitives::load_image(assets_folder + "/images/traffic_light_yellow_to_red.png");
+  if ( traffic_light_yellow_to_red_image.has_value() )
+  {
+    pre_cached_images["traffic_light_yellow_to_red"] = traffic_light_yellow_to_red_image.value();
+  }
+
+  std::optional<Image> traffic_light_yellow_to_green_image = primitives::load_image(assets_folder + "/images/traffic_light_yellow_to_green.png");
+  if ( traffic_light_yellow_to_green_image.has_value() )
+  {
+    pre_cached_images["traffic_light_yellow_to_green"] = traffic_light_yellow_to_green_image.value();
+  }
+
+  std::optional<Image> traffic_light_green_image = primitives::load_image(assets_folder + "/images/traffic_light_green.png");
+  if ( traffic_light_green_image.has_value() )
+  {
+    pre_cached_images["traffic_light_green"] = traffic_light_green_image.value();
+  }
+
+  std::optional<Image> autonomous_car_on_road_image = primitives::load_image(assets_folder + "/images/autonomous_car_on_road.png");
+  if ( autonomous_car_on_road_image .has_value() )
+  {
+    pre_cached_images["autonomous_car_on_road"] = autonomous_car_on_road_image.value();
+  }
+
+  std::optional<Image> autonomous_car_on_road_other_vehicle_close_image = primitives::load_image(assets_folder + "/images/autonomous_car_on_road_other_vehicle_close.png");
+  if ( autonomous_car_on_road_other_vehicle_close_image .has_value() )
+  {
+    pre_cached_images["autonomous_car_on_road_other_vehicle_close"] = autonomous_car_on_road_other_vehicle_close_image.value();
+  }
+
+  std::optional<Image> autonomous_car_on_road_other_vehicle_middle_image = primitives::load_image(assets_folder + "/images/autonomous_car_on_road_other_vehicle_middle.png");
+  if ( autonomous_car_on_road_other_vehicle_middle_image.has_value() )
+  {
+    pre_cached_images["autonomous_car_on_road_other_vehicle_middle"] = autonomous_car_on_road_other_vehicle_middle_image.value();
+  }
+
+  std::optional<Image> autonomous_car_on_road_other_vehicle_seen_image = primitives::load_image(assets_folder + "/images/autonomous_car_on_road_other_vehicle_seen.png");
+  if ( autonomous_car_on_road_other_vehicle_seen_image .has_value() )
+  {
+    pre_cached_images["autonomous_car_on_road_other_vehicle_seen"] = autonomous_car_on_road_other_vehicle_seen_image.value();
+  }
+}
+
+void
+Visualizer::pre_cache_road_features()
+{
+  if ( !show_road_features )
+    return;
+
+  auto buildings = buildings::extract_buildings_from_road_features(assets_folder);
+  pre_cached_road_features = buildings;
 }
 
 void
 Visualizer::create_publishers()
 {
   tf_broadcaster                   = std::make_shared<tf2_ros::TransformBroadcaster>( this );
-  map_grid_publisher               = create_publisher<nav_msgs::msg::OccupancyGrid>( "map_grid", 1 );
-  buildings_publisher = create_publisher<visualization_msgs::msg::MarkerArray>( "buildings", 1 );
-  traffic_light_behavior_publisher = create_publisher<sensor_msgs::msg::Image>( "traffic_light_behavior", 1 );
-  vehicle_behavior_publisher = create_publisher<sensor_msgs::msg::Image>( "vehicle_behavior", 1 );
-  map_location_publisher = create_publisher<sensor_msgs::msg::NavSatFix>( "vehicle_location", 1 );
-  route_visualization_publisher = create_publisher<foxglove_msgs::msg::GeoJSON>( "route_visualization", 1 );
-  goal_visualization_publisher = create_publisher<foxglove_msgs::msg::GeoJSON>( "goal_visualization", 1 );
-  marker_publishers["ego_vehicle"] = create_publisher<visualization_msgs::msg::MarkerArray>( "visualize_ego_vehicle", 1 );
-}
 
-void
-Visualizer::update_all_dynamic_subscriptions()
-{
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::TrafficParticipantSet>( "adore_ros2_msgs/msg/TrafficParticipantSet" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::SafetyCorridor>( "adore_ros2_msgs/msg/SafetyCorridor" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::Map>( "adore_ros2_msgs/msg/Map" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::Route>( "adore_ros2_msgs/msg/Route" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::GoalPoint>( "adore_ros2_msgs/msg/GoalPoint" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::TrafficSignals>( "adore_ros2_msgs/msg/TrafficSignals" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::Waypoints>( "adore_ros2_msgs/msg/Waypoints" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::CautionZone>( "adore_ros2_msgs/msg/CautionZone" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::Trajectory>( "adore_ros2_msgs/msg/Trajectory" );
-  update_dynamic_subscriptions<adore_ros2_msgs::msg::VisualizableObject>( "adore_ros2_msgs/msg/VisualizableObject" );
+  if ( show_map_image )
+  {
+    map_grid_publisher               = create_publisher<nav_msgs::msg::OccupancyGrid>( "map_grid", 1 );
+  }
+
+  if ( show_road_features )
+  {
+    road_feature_publisher = create_publisher<visualization_msgs::msg::MarkerArray>( "road_features", 1 );
+  }
+
+  // Most publishers are dynamic and generated later
 }
 
 void
@@ -100,60 +174,58 @@ Visualizer::create_subscribers()
   tf_buffer   = std::make_shared<tf2_ros::Buffer>( this->get_clock() );
   tf_listener = std::make_shared<tf2_ros::TransformListener>( *tf_buffer, this );
 
-  state_subscription = create_subscription<adore_ros2_msgs::msg::VehicleStateDynamic>( "vehicle_state/dynamic", 1,
-                                                                                       std::bind( &Visualizer::vehicle_state_callback, this,
-                                                                                                  std::placeholders::_1 ) );
-
-  route_subscriber = create_subscription<adore_ros2_msgs::msg::Route>( "route", 1, std::bind( &Visualizer::route_callback, this, std::placeholders::_1 ) );
-  decision_maker_status_subscriber = create_subscription<adore_ros2_msgs::msg::NodeStatus>( "decision_maker_status", 1, std::bind( &Visualizer::decision_maker_status_callback, this, std::placeholders::_1 ) );
-
-  infrastructure_info_subscription = create_subscription<adore_ros2_msgs::msg::InfrastructureInfo>(
-    "infrastructure_info", 1, std::bind( &Visualizer::infrastructure_info_callback, this, std::placeholders::_1 ) );
-
   high_frequency_timer = create_wall_timer( 100ms, std::bind( &Visualizer::high_frequency_timer_callback, this ) );
   low_frequency_timer  = create_wall_timer( 1000ms, std::bind( &Visualizer::low_frequency_timer_callback, this ) );
   update_all_dynamic_subscriptions();
 }
 
 void
+Visualizer::update_all_dynamic_subscriptions()
+{
+  // @TODO, add a case for InfrastructureInfo
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::VehicleStateDynamic>( "adore_ros2_msgs/msg/VehicleStateDynamic" ); 
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::NodeStatus>( "adore_ros2_msgs/msg/NodeStatus" );
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::TrafficParticipantSet>( "adore_ros2_msgs/msg/TrafficParticipantSet" );
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::SafetyCorridor>( "adore_ros2_msgs/msg/SafetyCorridor" );
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::Map>( "adore_ros2_msgs/msg/Map" );
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::Route>( "adore_ros2_msgs/msg/Route" );
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::GoalPoint>( "adore_ros2_msgs/msg/GoalPoint" );
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::TrafficSignals>( "adore_ros2_msgs/msg/TrafficSignals" );
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::Waypoints>( "adore_ros2_msgs/msg/Waypoints" );
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::CautionZone>( "adore_ros2_msgs/msg/CautionZone" );
+  // update_dynamic_subscriptions<adore_ros2_msgs::msg::Trajectory>( "adore_ros2_msgs/msg/Trajectory" );
+  update_dynamic_subscriptions<adore_ros2_msgs::msg::VisualizableObject>( "adore_ros2_msgs/msg/VisualizableObject" );
+}
+
+void
 Visualizer::high_frequency_timer_callback()
 {
   publish_markers();
-  if( !visualization_offset_center )
-    return;
+  publish_nav_sat_fix();
+  publish_geo_json();
+
   publish_visualization_frame();
-  publish_map_location();
 }
 
 void
 Visualizer::low_frequency_timer_callback()
 {
   update_all_dynamic_subscriptions();
-  if( !visualization_offset_center )
-    return;
-  publish_map_image();
-  publish_buildings();
-  publish_map_route();
-  publish_traffic_light_behavior();
-  publish_vehicle_behavior();
 
+  publish_images();
+
+  if ( show_map_image )
+    publish_map_image();
+
+  if ( show_road_features )
+    publish_road_features();
 }
 
 void
 Visualizer::publish_visualization_frame()
 {
-  // initialize visualization transform
-  if( !have_initial_offset )
-  {
-    have_initial_offset               = true;
-    offset_tf.header.frame_id         = "world";
-    offset_tf.child_frame_id          = "visualization_offset";
-    offset_tf.header.stamp            = now();
-    offset_tf.transform.translation.x = visualization_offset_center->x;
-    offset_tf.transform.translation.y = visualization_offset_center->y;
-    offset_tf.transform.translation.z = 0.0;
-  }
-  // Publish the offset transform
+
+  offset_tf.header.stamp = now();
   tf_broadcaster->sendTransform( offset_tf );
 }
 
@@ -165,6 +237,50 @@ Visualizer::publish_markers()
     if( marker_publishers.find( name ) != marker_publishers.end() )
     {
       marker_publishers[name]->publish( marker );
+    }
+  }
+}
+
+void
+Visualizer::publish_nav_sat_fix()
+{
+  for( const auto& [name, fix] : nav_sat_fix_cache )
+  {
+    if( nav_sat_fix_publisher.find( name ) != nav_sat_fix_publisher.end() )
+    {
+      nav_sat_fix_publisher[name]->publish( fix );
+    }
+  }
+}
+
+void
+Visualizer::publish_geo_json()
+{
+  for( const auto& [name, geo] : geo_json_cache )
+  {
+    if( geo_json_publisher.find( name ) != geo_json_publisher.end() )
+    {
+      geo_json_publisher[name]->publish( geo );
+    }
+  }
+}
+
+void
+Visualizer::publish_images()
+{
+  for( const auto& [name, img] : images_traffic_cache )
+  {
+    if( image_traffic_light_publishers.find( name ) != image_traffic_light_publishers.end() )
+    {
+      image_traffic_light_publishers[name]->publish( img );
+    }
+  }
+
+  for( const auto& [name, img] : images_behavior_cache )
+  {
+    if( image_behavior_publishers.find( name ) != image_behavior_publishers.end() )
+    {
+      image_behavior_publishers[name]->publish( img );
     }
   }
 }
@@ -190,42 +306,33 @@ Visualizer::should_subscribe_to_topic( const std::string& candidate_topic_name, 
   return true;
 }
 
-void
-Visualizer::vehicle_state_callback( const adore_ros2_msgs::msg::VehicleStateDynamic& msg )
-{
-  if( center_ego_vehicle )
-  {
-    // Add the latest odometry message to the buffer with its timestamp
-    auto latest_state           = dynamics::conversions::to_cpp_type( msg );
-    visualization_offset_center = { latest_state.x, latest_state.y };
-  }
+// @TODO, decide how to handle vehicle state and visualization
+// void
+// Visualizer::vehicle_state_callback( const adore_ros2_msgs::msg::VehicleStateDynamic& msg )
+// {
+//   if( center_ego_vehicle )
+//   {
+//     // Add the latest odometry message to the buffer with its timestamp
+//     auto latest_state           = dynamics::conversions::to_cpp_type( msg );
+//     visualization_offset_center = { latest_state.x, latest_state.y };
+//   }
 
-  // Convert the message to MarkerArray
-  auto ego_marker_array                     = conversions::to_marker_array( msg );
-  ego_marker_array.markers[0].mesh_resource = "http://localhost:8080/assets/3d_models/" + ego_vehicle_3d_model_path;
+//   // Convert the message to MarkerArray
+//   // auto ego_marker_array                     = conversions::to_marker_array( msg );
+//   // ego_marker_array.markers[0].mesh_resource = "http://localhost:8080/assets/3d_models/" + ego_vehicle_3d_model_path;
 
-  // Publish the MarkerArray
-  marker_cache["ego_vehicle"] = ego_marker_array;
-}
-
-void
-Visualizer::infrastructure_info_callback( const adore_ros2_msgs::msg::InfrastructureInfo& msg )
-{
-  if( !center_ego_vehicle )
-  {
-    visualization_offset_center = { msg.position_x, msg.position_y };
-  }
-}
+//   // Publish the MarkerArray
+//   // marker_cache["ego_vehicle"] = ego_marker_array;
+// }
 
 void
 Visualizer::publish_map_image()
 {
-  if( !visualization_offset_center )
+  if ( !show_map_image )
     return;
 
-  return;
   // Generate or retrieve cached PointCloud2
-  auto index_and_tile = map_image::generate_occupancy_grid( visualization_offset_center->x, visualization_offset_center->y, assets_folder + "/maps/",
+  auto index_and_tile = map_image::generate_occupancy_grid( offset_tf.transform.translation.x, offset_tf.transform.translation.y, assets_folder + "/maps/",
                                                             false, grid_tile_cache, map_image_api_key );
 
   if( latest_tile_idx != index_and_tile.first && map_grid_publisher->get_subscription_count() > 0 && index_and_tile.second.data.size() > 0 )
@@ -236,15 +343,19 @@ Visualizer::publish_map_image()
 }
 
 void
-Visualizer::publish_buildings()
+Visualizer::publish_road_features()
 {
+  if ( !show_road_features )
+    return;
+  
+  // @TODO, This whole function will need an overhaul in the future
   MarkerArray buildings_markers;
   
-  std::vector<int> buildings_to_visualize_indexes = buildings::get_nearby_buildings(building_cache, visualization_offset_center.value().x, visualization_offset_center.value().y, 200);
+  std::vector<int> buildings_to_visualize_indexes = buildings::get_nearby_buildings(pre_cached_road_features, offset_tf.transform.translation.x, offset_tf.transform.translation.y, 200);
 
   for ( const int building_index : buildings_to_visualize_indexes )
   {
-    const auto& building = building_cache[building_index];
+    const auto& building = pre_cached_road_features[building_index];
 
     double standard_building_height = 10.0;
 
@@ -254,143 +365,7 @@ Visualizer::publish_buildings()
     buildings_markers.markers.push_back(building_marker);
   }
 
-  buildings_publisher->publish( buildings_markers );
-}
-
-void
-Visualizer::publish_map_location()
-{
-  if ( !visualization_offset_center )
-    return;
-  
-  sensor_msgs::msg::NavSatFix nav_sat_fix;
-
-  std::vector<double> lat_lon = map::convert_utm_to_lat_lon(visualization_offset_center.value().x, visualization_offset_center.value().y, 32, "U");
-
-  nav_sat_fix.latitude = lat_lon[0];
-  nav_sat_fix.longitude = lat_lon[1];
-
-  map_location_publisher->publish(nav_sat_fix);
-}
-
-void
-Visualizer::publish_map_route()
-{
-  if ( !visualization_offset_center)
-    return;
-
-  if ( !ego_vehicle_route )
-    return;
-
-  math::Point2d goal_point = { ego_vehicle_route.value().goal.x, ego_vehicle_route.value().goal.y };
-
-  auto goal_position_lat_lon = map::convert_utm_to_lat_lon(goal_point.x, goal_point.y, 32, "U");
-
-  json goal_geojson = {
-      {"type", "FeatureCollection"},
-      {"features", json::array({
-        {
-          {"type", "Feature"},
-          {"properties", {{"name", "My Point"}, {"style", {{"color", "#ff0000"}}}}},
-          {"geometry", {
-            {"type", "Point"},
-            {"coordinates", json::array({goal_position_lat_lon[1], goal_position_lat_lon[0]})}
-          }}
-        }
-      })}
-    };
-
-  auto route_json_array = json::array({});
-
-  for ( const auto& point : ego_vehicle_route.value().center_points )
-  {
-    auto route_point_lat_lon = map::convert_utm_to_lat_lon(point.x, point.y, 32, "U");
-    route_json_array.push_back( { route_point_lat_lon[1], route_point_lat_lon[0] } );
-  }
-
-  json path = {
-      {"type", "FeatureCollection"},
-      {"features", json::array({
-        {
-          {"type", "Feature"},
-          {"properties", {
-            {"name", "Route Path"},
-            {"style", {
-              {"color", "#dfd331"},
-              {"weight", 3},
-              {"opacity", 1.0}
-            }}
-          }},
-          {"geometry", {
-            {"type", "LineString"},
-            {"coordinates", route_json_array }
-          }}
-        }
-      })}
-    };
-
-  foxglove_msgs::msg::GeoJSON route_map;
-  route_map.geojson = path.dump();
-
-  foxglove_msgs::msg::GeoJSON goal_map;
-  goal_map.geojson = goal_geojson.dump();
-
-  route_visualization_publisher->publish(route_map);
-  goal_visualization_publisher->publish(goal_map);
-}
-
-void
-Visualizer::publish_traffic_light_behavior()
-{
-  if( !ego_vehicle_decision_maker_status.has_value() )
-    return;
-
-  auto traffic_light_state = ego_vehicle_decision_maker_status->get_info<int>("nearest_traffic_light_signal");
-
-  int traffic_light = 3; // default unknown state
-
-  if ( traffic_light_state.has_value() )
-    traffic_light = traffic_light_state.value();
-
-  // @TODO, make this only trigger if there is a change!! Use an enum
-  const auto& behavior_image = behavior::fetch_traffic_light_state_image(assets_folder, traffic_light); 
-
-  if ( !behavior_image.has_value() )
-  {
-    std::cerr << "Tried to load behavior image, but it was not present" << std::endl;
-    return;
-  }
-  
-  sensor_msgs::msg::Image image_msg = behavior::image_to_msg( behavior_image.value() );
-
-  traffic_light_behavior_publisher->publish(image_msg);
-}
-
-void
-Visualizer::publish_vehicle_behavior()
-{
-  if ( !ego_vehicle_decision_maker_status.has_value() )
-    return;
-  
-  auto distance_to_vehicle_in_front = ego_vehicle_decision_maker_status->get_info<float>("obstacle_distance");
-
-  if ( !distance_to_vehicle_in_front.has_value() )
-    return;
-
-  std::cerr << "Distance: " << distance_to_vehicle_in_front.value() << std::endl;
-
-  // @TODO, make this only trigger if there is a change!! Use an enum
-  const auto& behavior_image = behavior::fetch_vehicle_state_image(assets_folder, distance_to_vehicle_in_front.value() ); 
-
-  if ( !behavior_image.has_value() )
-  {
-    std::cerr << "Tried to load behavior image, but it was not present" << std::endl;
-    return;
-  }
-  
-  sensor_msgs::msg::Image image_msg = behavior::image_to_msg( behavior_image.value() );
-
-  vehicle_behavior_publisher->publish(image_msg);
+  road_feature_publisher->publish( buildings_markers );
 }
 
 void
@@ -408,20 +383,6 @@ Visualizer::change_frame( visualization_msgs::msg::Marker& marker, const std::st
   }
   marker.header.frame_id = new_frame_id;
 }
-
-void
-Visualizer::route_callback( const adore_ros2_msgs::msg::Route& msg )
-{
-  ego_vehicle_route = msg;
-}
-
-
-void
-Visualizer::decision_maker_status_callback( const adore_ros2_msgs::msg::NodeStatus& msg )
-{
-  ego_vehicle_decision_maker_status = status::NodeStatus( msg );
-}
-
 
 } // namespace visualizer
 } // namespace adore

@@ -244,6 +244,26 @@ transform_marker( Marker& marker, const geometry_msgs::msg::TransformStamped& tr
 }
 
 
+std::optional<Image>
+load_image( const std::string& image_file_path )
+{
+  cv::Mat loaded_image = cv::imread( image_file_path );
+
+  if( loaded_image.empty() )
+  {
+    std::cerr << "Visualizer could not load the requeted image, path (" << image_file_path << ") is invalid" << std::endl;
+    return {};
+  }
+
+  std_msgs::msg::Header header;  // optional, set timestamp/frame_id if needed
+  // header.stamp = now();
+
+  header.frame_id = "camera";
+  sensor_msgs::msg::Image::SharedPtr msg = cv_bridge::CvImage(header, "bgr8", loaded_image).toImageMsg();
+
+  return std::optional<Image> { *msg };
+}
+
 } // namespace primitives
 } // namespace visualizer
 } // namespace adore
