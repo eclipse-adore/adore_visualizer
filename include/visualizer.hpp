@@ -27,15 +27,13 @@
 #include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 #include "tf2_ros/transform_broadcaster.h"
+#include "visualizable_traits.hpp"
 #include "visualization_primitives.hpp"
 #include "visualizer_conversions.hpp"
 #include <nav_msgs/msg/odometry.hpp>
-#include <nlohmann/json.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
-
-using json = nlohmann::json;
 
 namespace adore
 {
@@ -58,9 +56,13 @@ private:
   /* ---------- publishers ---------------------------------------------------- */
   using MarkerPublishers     = std::unordered_map<std::string, rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr>;
   using TrajectoryPublishers = std::unordered_map<std::string, rclcpp::Publisher<adore_ros2_msgs::msg::TrajectoryTranspose>::SharedPtr>;
+  using NavSatFixPublishers  = std::unordered_map<std::string, rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr>;
+  using GeoJSONPublishers    = std::unordered_map<std::string, rclcpp::Publisher<foxglove_msgs::msg::GeoJSON>::SharedPtr>;
 
   MarkerPublishers     marker_publishers;
   TrajectoryPublishers trajectory_publishers;
+  NavSatFixPublishers  nav_sat_fix_publishers;
+  GeoJSONPublishers    geo_json_publishers;
 
   /* ---------- subscriptions ------------------------------------------------- */
   std::unordered_map<std::string, rclcpp::SubscriptionBase::SharedPtr> dynamic_subscriptions;
@@ -110,12 +112,10 @@ void
 Visualizer::update_dynamic_subscriptions( const std::string& expected_msg_type )
 {
   auto topic_names_and_types = get_topic_names_and_types();
-
   for( const auto& [topic_name, advertised_msg_types] : topic_names_and_types )
   {
     if( !should_subscribe_to_topic( topic_name, expected_msg_type, advertised_msg_types ) )
       continue;
-
     create_publisher_for<MsgT>( topic_name );
     create_subscription_for<MsgT>( topic_name );
   }
@@ -125,14 +125,30 @@ template<typename MsgT>
 void
 Visualizer::create_publisher_for( const std::string& topic_name )
 {
-  marker_publishers[topic_name] = create_publisher<visualization_msgs::msg::MarkerArray>( "viz" + topic_name, 10 );
+  // MarkerArray publisher only if MsgT can be converted
+  if constexpr( has_marker_array_conversion<MsgT> )
+  {
+    marker_publishers[topic_name] = create_publisher<visualization_msgs::msg::MarkerArray>( "viz" + topic_name, 10 );
+    marker_cache[topic_name]      = MarkerArray();
+  }
 
-  if constexpr( std::is_same_v<MsgT, adore_ros2_msgs::msg::Trajectory> )
+  // TrajectoryTranspose publisher only if MsgT has transpose conversion
+  if constexpr( has_trajectory_transpose_conversion<MsgT> )
   {
     trajectory_publishers[topic_name] = create_publisher<adore_ros2_msgs::msg::TrajectoryTranspose>( topic_name + "_transpose", 10 );
   }
 
-  marker_cache[topic_name] = MarkerArray();
+  if constexpr( has_nav_sat_fix_conversion<MsgT> )
+  {
+    using NavSatMsg                    = typename nav_sat_fix_conversion<MsgT>::result_type;
+    nav_sat_fix_publishers[topic_name] = create_publisher<NavSatMsg>( topic_name + "_nav_sat_fix", 10 );
+  }
+
+  if constexpr( has_geo_json_conversion<MsgT> )
+  {
+    using GeoJSONMsg                = typename geo_json_conversion<MsgT>::result_type;
+    geo_json_publishers[topic_name] = create_publisher<GeoJSONMsg>( topic_name + "_geo_json", 10 );
+  }
 }
 
 template<typename MsgT>
@@ -140,28 +156,45 @@ void
 Visualizer::create_subscription_for( const std::string& topic_name )
 {
   auto callback = [this, topic_name]( const MsgT& msg ) {
-    // Skip conversion if nobody is subscribed to the marker topic
-    const auto& pub_it = marker_publishers.find( topic_name );
-    if( pub_it == marker_publishers.end() || pub_it->second->get_subscription_count() == 0 )
-      return;
-
-    auto marker_array = conversions::to_marker_array( msg );
-    for( auto& marker : marker_array.markers )
+    // MarkerArray branch (only compiled if conversion exists)
+    if constexpr( has_marker_array_conversion<MsgT> )
     {
-      marker.header.frame_id = msg.header.frame_id;
-      change_frame( marker, "visualization_offset" );
+      const auto& pub_it = marker_publishers.find( topic_name );
+      if( pub_it == marker_publishers.end() || pub_it->second->get_subscription_count() == 0 )
+        return;
+
+      auto marker_array = marker_array_conversion<MsgT>::convert( msg );
+      for( auto& marker : marker_array.markers )
+      {
+        marker.header.frame_id = msg.header.frame_id;
+        change_frame( marker, "visualization_offset" );
+      }
+
+      marker_cache[topic_name] = std::move( marker_array );
     }
 
-    marker_cache[topic_name] = marker_array;
-
-    if constexpr( std::is_same_v<MsgT, adore_ros2_msgs::msg::Trajectory> )
+    // TrajectoryTranspose branch (only compiled if conversion exists)
+    if constexpr( has_trajectory_transpose_conversion<MsgT> )
     {
-      trajectory_publishers[topic_name]->publish( dynamics::conversions::transpose( msg ) );
+      trajectory_publishers[topic_name]->publish( trajectory_transpose_conversion<MsgT>::convert( msg ) );
+    }
+
+    // NavSatFix branch (only compiled if conversion exists)
+    if constexpr( has_nav_sat_fix_conversion<MsgT> )
+    {
+      nav_sat_fix_publishers[topic_name]->publish( nav_sat_fix_conversion<MsgT>::convert( msg ) );
+    }
+
+    // GeoJSON branch (only compiled if conversion exists)
+    if constexpr( has_geo_json_conversion<MsgT> )
+    {
+      geo_json_publishers[topic_name]->publish( geo_json_conversion<MsgT>::convert( msg ) );
     }
   };
 
   dynamic_subscriptions[topic_name] = create_subscription<MsgT>( topic_name, 1, callback );
 }
+
 
 } // namespace visualizer
 } // namespace adore

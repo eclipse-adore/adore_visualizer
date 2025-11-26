@@ -13,8 +13,11 @@
 
 #include "visualizer_conversions.hpp"
 
+#include <adore_map/lat_long_conversions.hpp>
+
 #include "color_palette.hpp"
 #include "visualization_primitives.hpp"
+#include <nlohmann/json.hpp>
 #include <rclcpp/duration.hpp>
 
 namespace adore
@@ -47,16 +50,16 @@ to_marker_array( const adore_ros2_msgs::msg::Map& local_map_msg )
   {
     for( const auto& lane : road.lanes )
     {
-      auto inner_marker      = primitives::create_line_marker( lane.inner_points, "inner", lane.id, 0.15, colors::white );
-      auto outer_marker      = primitives::create_line_marker( lane.outer_points, "outer", lane.id, 0.15, colors::white );
-      auto center_marker     = primitives::create_line_marker( lane.center_points, "center", lane.id, 0.1, colors::gray );
+      auto inner_marker  = primitives::create_line_marker( lane.inner_points, "inner", lane.id, 0.15, colors::white );
+      auto outer_marker  = primitives::create_line_marker( lane.outer_points, "outer", lane.id, 0.15, colors::white );
+      auto center_marker = primitives::create_line_marker( lane.center_points, "center", lane.id, 0.1, colors::gray );
 
-      auto road_marker = primitives::create_lane_marker(lane.inner_points, lane.outer_points, "road", lane.id, colors::gray );
+      auto road_marker = primitives::create_lane_marker( lane.inner_points, lane.outer_points, "road", lane.id, colors::gray );
 
       inner_marker.lifetime  = rclcpp::Duration::from_seconds( 5.0 );
       outer_marker.lifetime  = rclcpp::Duration::from_seconds( 5.0 );
       center_marker.lifetime = rclcpp::Duration::from_seconds( 5.0 );
-      road_marker.lifetime = rclcpp::Duration::from_seconds( 5.0 );
+      road_marker.lifetime   = rclcpp::Duration::from_seconds( 5.0 );
 
       marker_array.markers.push_back( inner_marker );
       marker_array.markers.push_back( outer_marker );
@@ -402,6 +405,67 @@ to_marker_array( const adore_ros2_msgs::msg::CautionZone& caution_zone )
   marker_array.markers.push_back( text_markers );
 
   return marker_array;
+}
+
+NavSatFix
+to_nav_sat_fix( const adore_ros2_msgs::msg::VehicleStateDynamic& vehicle_state_dynamic )
+{
+  NavSatFix nav_sat_fix;
+
+  std::vector<double> lat_lon = map::convert_utm_to_lat_lon( vehicle_state_dynamic.x, vehicle_state_dynamic.y, 32, "U" );
+
+  nav_sat_fix.latitude  = lat_lon[0];
+  nav_sat_fix.longitude = lat_lon[1];
+
+  return nav_sat_fix;
+}
+
+using json = nlohmann::json;
+
+GeoJSON
+to_geo_json( const adore_ros2_msgs::msg::GoalPoint& goal_point )
+{
+  auto goal_position_lat_lon = map::convert_utm_to_lat_lon( goal_point.x_position, goal_point.y_position, 32, "U" );
+
+  json goal_geojson = {
+    {     "type",                                                                                                                      "FeatureCollection" },
+    { "features", json::array( { { { "type", "Feature" },
+ { "properties", { { "name", "My Point" }, { "style", { { "color", "#ff0000" } } } } },
+ { "geometry",
+ { { "type", "Point" },
+ { "coordinates", json::array( { goal_position_lat_lon[1], goal_position_lat_lon[0] } ) } } } } } )                                      }
+  };
+
+  foxglove_msgs::msg::GeoJSON goal_map;
+  goal_map.geojson = goal_geojson.dump();
+
+  return goal_map;
+}
+
+GeoJSON
+to_geo_json( const adore_ros2_msgs::msg::Route& route )
+{
+  auto route_json_array = json::array( {} );
+
+  for( const auto& point : route.center_points )
+  {
+    auto route_point_lat_lon = map::convert_utm_to_lat_lon( point.x, point.y, 32, "U" );
+    route_json_array.push_back( { route_point_lat_lon[1], route_point_lat_lon[0] } );
+  }
+
+  json path = {
+    {     "type",                                              "FeatureCollection"          },
+    { "features",
+     json::array(
+     { { { "type", "Feature" },
+     { "properties", { { "name", "Route Path" }, { "style", { { "color", "#dfd331" }, { "weight", 3 }, { "opacity", 1.0 } } } } },
+     { "geometry", { { "type", "LineString" }, { "coordinates", route_json_array } } } } } ) }
+  };
+
+  foxglove_msgs::msg::GeoJSON route_map;
+  route_map.geojson = path.dump();
+
+  return route_map;
 }
 } // namespace conversions
 } // namespace visualizer

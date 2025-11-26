@@ -32,8 +32,9 @@ find_package(adore_ros2_msgs REQUIRED)
 find_package(adore_math_conversions REQUIRED)
 find_package(adore_map_conversions REQUIRED)
 find_package(adore_dynamics_conversions REQUIRED)
-find_package(OpenCV REQUIRED)
-find_package(cv_bridge REQUIRED)
+
+find_package(sensor_msgs REQUIRED)
+find_package(foxglove_msgs REQUIRED)
 
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -67,8 +68,8 @@ ament_target_dependencies(${PROJECT_NAME}
   adore_dynamics_conversions
   tf2
   tf2_ros
-  OpenCV
-  cv_bridge
+  sensor_msgs
+  foxglove_msgs
 )
 
 install(TARGETS ${PROJECT_NAME}
