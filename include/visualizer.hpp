@@ -15,19 +15,27 @@
 #include "adore_dynamics_conversions.hpp"
 #include "adore_map_conversions.hpp"
 #include "adore_math/angles.h"
+#include "adore_ros2_msgs/msg/goal_point.hpp"
 #include "adore_ros2_msgs/msg/traffic_prediction.hpp"
 #include "adore_ros2_msgs/msg/vehicle_state_dynamic.hpp"
+#include <adore_map/route.hpp>
+#include <adore_math/point.h>
 #include <adore_ros2_msgs/msg/infrastructure_info.hpp>
 #include <adore_ros2_msgs/msg/traffic_participant_set.hpp>
 #include <adore_ros2_msgs/msg/trajectory.hpp>
 
-#include "map_image_visualization.hpp"
+#include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/msg/nav_sat_fix.hpp"
 #include "tf2_ros/transform_broadcaster.h"
+#include "visualization_primitives.hpp"
 #include "visualizer_conversions.hpp"
 #include <nav_msgs/msg/odometry.hpp>
+#include <nlohmann/json.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+
+using json = nlohmann::json;
 
 namespace adore
 {
@@ -51,9 +59,8 @@ private:
   using MarkerPublishers     = std::unordered_map<std::string, rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr>;
   using TrajectoryPublishers = std::unordered_map<std::string, rclcpp::Publisher<adore_ros2_msgs::msg::TrajectoryTranspose>::SharedPtr>;
 
-  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_grid_publisher;
-  MarkerPublishers                                           marker_publishers;
-  TrajectoryPublishers                                       trajectory_publishers;
+  MarkerPublishers     marker_publishers;
+  TrajectoryPublishers trajectory_publishers;
 
   /* ---------- subscriptions ------------------------------------------------- */
   std::unordered_map<std::string, rclcpp::SubscriptionBase::SharedPtr> dynamic_subscriptions;
@@ -63,13 +70,7 @@ private:
 
   /* ---------- configuration / state -------------------------------- */
   std::optional<math::Point2d> visualization_offset_center;
-  std::string                  maps_folder;
-  GridTileCache                grid_tile_cache;
-  TileKey                      latest_tile_idx{ -1, -1 };
   std::vector<std::string>     whitelist;
-  std::string                  map_image_api_key;
-  bool                         map_image_grayscale{ true };
-  std::string                  ego_vehicle_3d_model_path;
 
   /* ---------- dynamic‑subscription helpers --------------------------------- */
   template<typename MsgT>
@@ -86,7 +87,6 @@ private:
   void create_subscribers();
 
   /* ---------- regular publishing helpers ----------------------------------- */
-  void publish_map_image();
   void publish_markers();
   void publish_visualization_frame();
 

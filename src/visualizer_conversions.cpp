@@ -15,6 +15,7 @@
 
 #include "color_palette.hpp"
 #include "visualization_primitives.hpp"
+#include <rclcpp/duration.hpp>
 
 namespace adore
 {
@@ -49,16 +50,20 @@ to_marker_array( const adore_ros2_msgs::msg::Map& local_map_msg )
       auto inner_marker      = primitives::create_line_marker( lane.inner_points, "inner", lane.id, 0.15, colors::white );
       auto outer_marker      = primitives::create_line_marker( lane.outer_points, "outer", lane.id, 0.15, colors::white );
       auto center_marker     = primitives::create_line_marker( lane.center_points, "center", lane.id, 0.1, colors::gray );
+
+      auto road_marker = primitives::create_lane_marker(lane.inner_points, lane.outer_points, "road", lane.id, colors::gray );
+
       inner_marker.lifetime  = rclcpp::Duration::from_seconds( 5.0 );
       outer_marker.lifetime  = rclcpp::Duration::from_seconds( 5.0 );
       center_marker.lifetime = rclcpp::Duration::from_seconds( 5.0 );
+      road_marker.lifetime = rclcpp::Duration::from_seconds( 5.0 );
 
       marker_array.markers.push_back( inner_marker );
       marker_array.markers.push_back( outer_marker );
       marker_array.markers.push_back( center_marker );
+      marker_array.markers.push_back( road_marker );
     }
   }
-
 
   return marker_array;
 }
@@ -240,10 +245,10 @@ to_marker_array( const adore_ros2_msgs::msg::Trajectory& trajectory )
   std::string ns         = "trajectory_label";
 
   // Create the text markers
-  Marker text_marker = primitives::create_text_marker( state.x, state.y, state.z + 5, trajectory.label, text_size, text_color, ns );
+  // Marker text_marker = primitives::create_text_marker( state.x, state.y, state.z + 5, trajectory.label, text_size, text_color, ns );
 
   // Combine the markers from both arrays
-  marker_array.markers.push_back( text_marker );
+  // marker_array.markers.push_back( text_marker );
   // Create the line marker for the trajectory
   auto line_marker = primitives::create_flat_line_marker( trajectory.states, "decision", trajectory.request_id, 1.8, colors::soft_blue );
   marker_array.markers.push_back( line_marker );

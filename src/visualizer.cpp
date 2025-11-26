@@ -10,8 +10,18 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  ********************************************************************************/
-
 #include "visualizer.hpp"
+
+#include "adore_ros2_msgs/msg/goal_point.hpp"
+#include <adore_map/lat_long_conversions.hpp>
+#include <adore_map_conversions.hpp>
+#include <adore_math/point.h>
+
+#include "color_palette.hpp"
+#include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/msg/nav_sat_fix.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
+#include "visualization_primitives.hpp"
 using namespace std::chrono_literals;
 
 namespace adore
@@ -30,11 +40,7 @@ Visualizer::Visualizer( const rclcpp::NodeOptions& options ) :
 void
 Visualizer::load_parameters()
 {
-  maps_folder                    = declare_parameter<std::string>( "asset folder", "" );
-  ego_vehicle_3d_model_path      = declare_parameter<std::string>( "ego_vehicle_3d_model_path", "low_poly_ngc_model.dae" );
   whitelist                      = declare_parameter<std::vector<std::string>>( "whitelist", whitelist );
-  map_image_api_key              = declare_parameter<std::string>( "map_image_api_key", "" );
-  map_image_grayscale            = declare_parameter<bool>( "map_image_grayscale", true );
   visualization_offset_center    = math::Point2d( 0.0, 0.0 );
   visualization_offset_center->x = declare_parameter<double>( "visualization_offset_x", 0.0 );
   visualization_offset_center->y = declare_parameter<double>( "visualization_offset_y", 0.0 );
@@ -50,9 +56,7 @@ Visualizer::load_parameters()
 void
 Visualizer::create_publishers()
 {
-  tf_broadcaster                   = std::make_shared<tf2_ros::TransformBroadcaster>( this );
-  map_grid_publisher               = create_publisher<nav_msgs::msg::OccupancyGrid>( "map_grid", 1 );
-  marker_publishers["ego_vehicle"] = create_publisher<visualization_msgs::msg::MarkerArray>( "visualize_ego_vehicle", 1 );
+  tf_broadcaster = std::make_shared<tf2_ros::TransformBroadcaster>( this );
 }
 
 void
@@ -92,7 +96,6 @@ void
 Visualizer::low_frequency_timer_callback()
 {
   update_all_dynamic_subscriptions();
-  publish_map_image();
 }
 
 void
@@ -133,23 +136,6 @@ Visualizer::should_subscribe_to_topic( const std::string& candidate_topic_name, 
     return false;
 
   return true;
-}
-
-void
-Visualizer::publish_map_image()
-{
-  if( !visualization_offset_center )
-    return;
-
-  // Generate or retrieve cached PointCloud2
-  auto index_and_tile = map_image::generate_occupancy_grid( visualization_offset_center->x, visualization_offset_center->y, maps_folder,
-                                                            false, grid_tile_cache, map_image_api_key );
-
-  if( latest_tile_idx != index_and_tile.first && map_grid_publisher->get_subscription_count() > 0 && index_and_tile.second.data.size() > 0 )
-  {
-    latest_tile_idx = index_and_tile.first;
-    map_grid_publisher->publish( index_and_tile.second );
-  }
 }
 
 void

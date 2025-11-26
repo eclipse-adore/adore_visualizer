@@ -43,7 +43,6 @@ add_executable(${PROJECT_NAME}
   src/visualizer_conversions.cpp
   src/visualization_primitives.cpp
   src/visualizer.cpp
-  src/map_image_visualization.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
