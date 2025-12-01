@@ -10,8 +10,11 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  ********************************************************************************/
+#pragma once
 #include <type_traits>
 #include <utility>
+
+#include "adore_dynamics_conversions.hpp"
 
 #include "visualizer_conversions.hpp"
 

@@ -26,7 +26,7 @@
 
 #include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
-#include "tf2_ros/transform_broadcaster.h"
+#include "tf2_ros/static_transform_broadcaster.h"
 #include "visualizable_traits.hpp"
 #include "visualization_primitives.hpp"
 #include "visualizer_conversions.hpp"
@@ -47,11 +47,10 @@ private:
   rclcpp::TimerBase::SharedPtr high_frequency_timer;
   rclcpp::TimerBase::SharedPtr low_frequency_timer;
 
-  std::shared_ptr<tf2_ros::Buffer>               tf_buffer;
-  std::shared_ptr<tf2_ros::TransformListener>    tf_listener;
-  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster;
-  bool                                           have_initial_offset{ false };
-  geometry_msgs::msg::TransformStamped           offset_tf;
+  std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_broadcaster;
+  std::shared_ptr<tf2_ros::Buffer>                     tf_buffer;
+  std::shared_ptr<tf2_ros::TransformListener>          tf_listener;
+  geometry_msgs::msg::TransformStamped                 offset_tf;
 
   /* ---------- publishers ---------------------------------------------------- */
   using MarkerPublishers     = std::unordered_map<std::string, rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr>;
@@ -85,12 +84,10 @@ private:
 
   /* ---------- initialization ----------------------------------------------- */
   void load_parameters();
-  void create_publishers();
   void create_subscribers();
 
   /* ---------- regular publishing helpers ----------------------------------- */
   void publish_markers();
-  void publish_visualization_frame();
 
   /* ---------- callbacks ----------------------------------------------------- */
   void high_frequency_timer_callback();
@@ -169,8 +166,9 @@ Visualizer::create_subscription_for( const std::string& topic_name )
         marker.header.frame_id = msg.header.frame_id;
         change_frame( marker, "visualization_offset" );
       }
+      marker_publishers[topic_name]->publish( marker_array );
 
-      marker_cache[topic_name] = std::move( marker_array );
+      // marker_cache[topic_name] = std::move( marker_array );
     }
 
     // TrajectoryTranspose branch (only compiled if conversion exists)

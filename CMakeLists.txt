@@ -39,22 +39,20 @@ find_package(foxglove_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 
-# Executable
-add_executable(${PROJECT_NAME}
+# Library with core visualization code
+add_library(visualizer_lib
   src/visualizer_conversions.cpp
   src/visualization_primitives.cpp
-  src/visualizer.cpp
 )
 
-target_include_directories(${PROJECT_NAME}
-  PRIVATE
+target_include_directories(visualizer_lib
+  PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
     ${OpenCV_INCLUDE_DIRS}
-
 )
 
-ament_target_dependencies(${PROJECT_NAME}
+ament_target_dependencies(visualizer_lib
   rclcpp
   rclcpp_components
   std_msgs
@@ -72,8 +70,48 @@ ament_target_dependencies(${PROJECT_NAME}
   foxglove_msgs
 )
 
+# Executable (unchanged name)
+add_executable(${PROJECT_NAME}
+  src/visualizer.cpp
+)
+
+target_link_libraries(${PROJECT_NAME}
+  visualizer_lib
+)
+
+target_include_directories(${PROJECT_NAME}
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+    ${OpenCV_INCLUDE_DIRS}
+)
+
+ament_target_dependencies(${PROJECT_NAME}
+  rclcpp
+  rclcpp_components
+)
+
 install(TARGETS ${PROJECT_NAME}
   DESTINATION lib/${PROJECT_NAME}
 )
+
+# Tests
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(visualization_primitives_test
+    test/visualization_primitives_test.cpp
+  )
+  target_link_libraries(visualization_primitives_test
+    visualizer_lib
+  )
+
+  ament_add_gtest(visualizer_conversions_test
+    test/visualizer_conversions_test.cpp
+  )
+  target_link_libraries(visualizer_conversions_test
+    visualizer_lib
+  )
+endif()
 
 ament_package()
