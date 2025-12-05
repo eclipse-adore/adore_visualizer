@@ -164,11 +164,11 @@ Visualizer::create_subscription_for( const std::string& topic_name )
       for( auto& marker : marker_array.markers )
       {
         marker.header.frame_id = msg.header.frame_id;
-        change_frame( marker, "visualization_offset" );
+        // skip change frame if topic name contains "vehicle_state_dynamic"
+        if( marker.header.frame_id == "world" )
+          change_frame( marker, "visualization_offset" );
       }
       marker_publishers[topic_name]->publish( marker_array );
-
-      // marker_cache[topic_name] = std::move( marker_array );
     }
 
     // TrajectoryTranspose branch (only compiled if conversion exists)

@@ -130,11 +130,12 @@ Visualizer::change_frame( visualization_msgs::msg::Marker& marker, const std::st
 {
   const auto stamp = marker.header.stamp; // original message time
 
+  if( new_frame_id == marker.header.frame_id )
+    return;
+
   try
   {
-    auto transform = tf_buffer->lookupTransform( new_frame_id, marker.header.frame_id,
-                                                 stamp // use the message timestamp instead of TimePointZero
-    );
+    auto transform = tf_buffer->lookupTransform( new_frame_id, marker.header.frame_id, stamp );
 
     primitives::transform_marker( marker, transform );
     marker.header.frame_id = new_frame_id;
