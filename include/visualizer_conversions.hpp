@@ -10,6 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  ********************************************************************************/
+
 #pragma once
 
 #include "adore_map_conversions.hpp"
@@ -26,7 +27,9 @@
 #include <adore_ros2_msgs/msg/waypoints.hpp>
 
 #include "color_palette.hpp"
+#include "sensor_msgs/msg/nav_sat_fix.hpp"
 #include "visualization_primitives.hpp"
+#include <foxglove_msgs/msg/geo_json.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <tf2/LinearMath/Quaternion.h>
@@ -44,6 +47,8 @@ namespace visualizer
 namespace conversions
 {
 
+using NavSatFix = sensor_msgs::msg::NavSatFix;
+using GeoJSON   = foxglove_msgs::msg::GeoJSON;
 
 // Helper functions to convert messages to MarkerArray
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& msg );
@@ -67,6 +72,12 @@ MarkerArray to_marker_array( const adore_ros2_msgs::msg::CautionZone& caution_zo
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::Waypoints& waypoints_msg );
 
 MarkerArray to_marker_array( const adore_ros2_msgs::msg::VisualizableObject& msg );
+
+NavSatFix to_nav_sat_fix( const adore_ros2_msgs::msg::VehicleStateDynamic& vehicle_state_dynamic );
+
+GeoJSON to_geo_json( const adore_ros2_msgs::msg::GoalPoint& goal_point );
+
+GeoJSON to_geo_json( const adore_ros2_msgs::msg::Route& route );
 
 
 } // namespace conversions

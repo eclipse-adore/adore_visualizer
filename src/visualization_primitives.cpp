@@ -10,6 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  ********************************************************************************/
+
 #include "visualization_primitives.hpp"
 
 #include <iostream>

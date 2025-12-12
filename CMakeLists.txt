@@ -1,16 +1,15 @@
 cmake_minimum_required(VERSION 3.8)
+project(visualizer VERSION 0.1.0 LANGUAGES CXX)
 
-get_filename_component(CURRENT_DIR_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
-string(TOLOWER ${CURRENT_DIR_NAME} PROJECT)
-project(${PROJECT})
+# C++20 strict mode
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Compile commands for IDE support
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-include($ENV{SOURCE_DIRECTORY}/libraries/adore_libraries.cmake)
-
-include(requirements.cmake)
-set(CMAKE_CXX_STANDARD 20)
-# Ensure the Release build uses -O3 for optimization
+# Optimization flags
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
   add_compile_options(-O3)
 endif()
@@ -19,28 +18,100 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# Dependencies
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
 
-add_executable(${PROJECT} 
+find_package(std_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(adore_math REQUIRED)
+find_package(adore_map REQUIRED)
+find_package(adore_ros2_msgs REQUIRED)
+find_package(adore_math_conversions REQUIRED)
+find_package(adore_map_conversions REQUIRED)
+find_package(adore_dynamics_conversions REQUIRED)
+
+find_package(sensor_msgs REQUIRED)
+find_package(foxglove_msgs REQUIRED)
+
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+
+# Library with core visualization code
+add_library(visualizer_lib
   src/visualizer_conversions.cpp
   src/visualization_primitives.cpp
+)
+
+target_include_directories(visualizer_lib
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+    ${OpenCV_INCLUDE_DIRS}
+)
+
+ament_target_dependencies(visualizer_lib
+  rclcpp
+  rclcpp_components
+  std_msgs
+  geometry_msgs
+  visualization_msgs
+  adore_math
+  adore_map
+  adore_ros2_msgs
+  adore_math_conversions
+  adore_map_conversions
+  adore_dynamics_conversions
+  tf2
+  tf2_ros
+  sensor_msgs
+  foxglove_msgs
+)
+
+# Executable (unchanged name)
+add_executable(${PROJECT_NAME}
   src/visualizer.cpp
-  src/map_image_visualization.cpp
-  src/building_visualization.cpp
-  src/behavior_visualizer.cpp
+)
+
+target_link_libraries(${PROJECT_NAME}
+  visualizer_lib
+)
+
+target_include_directories(${PROJECT_NAME}
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+    ${OpenCV_INCLUDE_DIRS}
+)
+
+ament_target_dependencies(${PROJECT_NAME}
+  rclcpp
+  rclcpp_components
+)
+
+install(TARGETS ${PROJECT_NAME}
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+# Tests
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(visualization_primitives_test
+    test/visualization_primitives_test.cpp
+  )
+  target_link_libraries(visualization_primitives_test
+    visualizer_lib
   )
 
-target_include_directories(${PROJECT} PRIVATE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-)
-
-
-add_all_target_include_directories(${PROJECT})
-add_all_target_link_libraries(${PROJECT})
-
-install(TARGETS
-    ${PROJECT}
-  DESTINATION lib/${PROJECT}
-)
+  ament_add_gtest(visualizer_conversions_test
+    test/visualizer_conversions_test.cpp
+  )
+  target_link_libraries(visualizer_conversions_test
+    visualizer_lib
+  )
+endif()
 
 ament_package()
