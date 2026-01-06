@@ -466,14 +466,6 @@ std::optional<Marker> get_participant_3d_model(const adore_ros2_msgs::msg::Traff
     const auto& state   = participant.participant_data.motion_state;
     double      heading = state.yaw_angle;
 
-    // Compute unit vector for heading
-    double unit_vector_x = std::cos( heading );
-    double unit_vector_y = std::sin( heading );
-
-    double participant_length = participant.participant_data.physical_parameters.body_length;
-    double participant_width  = participant.participant_data.physical_parameters.body_width;
-    double participant_height = participant.participant_data.physical_parameters.body_height;
-
     auto participant_color = participant.participant_data.goal_point.x < 0.01 ? colors::red : colors::purple;
 
     if( controllable )
@@ -490,90 +482,69 @@ std::optional<Marker> get_participant_3d_model(const adore_ros2_msgs::msg::Traff
       return object_3d_model_marker;
     }
 
+    std::optional<std::string> model_name;
 
-    double bounding_box_volume = participant_width * participant_length * participant_height;
-
-    
-    if ( participant_length > 15 ) // truck car 
+    auto participant_classification = participant.participant_data.classification.type_id;
+    switch ( participant_classification )
     {
-      Marker object_3d_model_marker = primitives::create_3d_object_marker( state.x, state.y,
-                                                                     0.01, // Z height
-                                                                     1.0,    // scale (Reduced a little bit to avoid clipping for default bounding box of simulated participant, this is not elegant, but probably fine for now)
-                                                                     heading, "traffc_participant_model", participant.participant_data.tracking_id,
-                                                                     colors::blue,
-                                                                     "truck.dae" ); // Create a rectangle marker for the ego vehicle
-      object_3d_model_marker.frame_locked                = true;
-      object_3d_model_marker.mesh_use_embedded_materials = true;
-      return object_3d_model_marker;
+      case adore_ros2_msgs::msg::TrafficClassification::CAR:
+      {
+        model_name = get_best_fiting_car_3d_model(participant);
+        break;
+      }
+      case adore_ros2_msgs::msg::TrafficClassification::PEDESTRIAN:
+      {
+        model_name = "human_standing.dae";
+        break;
+      }
+      case adore_ros2_msgs::msg::TrafficClassification::TRUCK:
+      {
+        model_name = "truck.dae";
+        break;
+      }
+      default:
+      {
+        model_name = {};
+        break;    
+      }
     }
 
-
-    if ( participant_length > 5.0 ) // bus car (around the size of the standard vehicle)
+    if ( model_name.has_value() )
     {
       Marker object_3d_model_marker = primitives::create_3d_object_marker( state.x, state.y,
                                                                      0.01, // Z height
-                                                                     1.0,    // scale (Reduced a little bit to avoid clipping for default bounding box of simulated participant, this is not elegant, but probably fine for now)
+                                                                     1.0,    
                                                                      heading, "traffc_participant_model", participant.participant_data.tracking_id,
                                                                      colors::blue,
-                                                                     "car_bus.dae" ); // Create a rectangle marker for the ego vehicle
-      object_3d_model_marker.frame_locked                = true;
-      object_3d_model_marker.mesh_use_embedded_materials = true;
-      return object_3d_model_marker;
-    }
-
-    if ( participant_length > 4.5 ) // large car (around the size of the standard vehicle)
-    {
-      Marker object_3d_model_marker = primitives::create_3d_object_marker( state.x, state.y,
-                                                                     0.01, // Z height
-                                                                     0.99,    // scale (Reduced a little bit to avoid clipping for default bounding box of simulated participant, this is not elegant, but probably fine for now)
-                                                                     heading, "traffc_participant_model", participant.participant_data.tracking_id,
-                                                                     colors::blue,
-                                                                     "car_large.dae" ); // Create a rectangle marker for the ego vehicle
-      object_3d_model_marker.frame_locked                = true;
-      object_3d_model_marker.mesh_use_embedded_materials = true;
-      return object_3d_model_marker;
-    }
-
-    if ( participant_length > 4 ) // medium car 
-    {
-      Marker object_3d_model_marker = primitives::create_3d_object_marker( state.x, state.y,
-                                                                     0.01, // Z height
-                                                                     1.0,    // scale
-                                                                     heading, "traffc_participant_model", participant.participant_data.tracking_id,
-                                                                     colors::blue,
-                                                                     "car_medium.dae" ); // Create a rectangle marker for the ego vehicle
-      object_3d_model_marker.frame_locked                = true;
-      object_3d_model_marker.mesh_use_embedded_materials = true;
-      return object_3d_model_marker;
-    }
-
-    if ( participant_length > 3.5) // small car 
-    {
-      Marker object_3d_model_marker = primitives::create_3d_object_marker( state.x, state.y,
-                                                                     0.01, // Z height
-                                                                     1.0,    // scale
-                                                                     heading, "traffc_participant_model", participant.participant_data.tracking_id,
-                                                                     colors::blue,
-                                                                     "car_small.dae" ); // Create a rectangle marker for the ego vehicle
-      object_3d_model_marker.frame_locked                = true;
-      object_3d_model_marker.mesh_use_embedded_materials = true;
-      return object_3d_model_marker;
-    }
-
-    if ( participant_length < 2.0) // small car 
-    {
-      Marker object_3d_model_marker = primitives::create_3d_object_marker( state.x, state.y,
-                                                                     0.01, // Z height
-                                                                     1.0,    // scale
-                                                                     heading, "traffc_participant_model", participant.participant_data.tracking_id,
-                                                                     colors::blue,
-                                                                     "human_standing.dae" ); // Create a rectangle marker for the ego vehicle
+                                                                     model_name.value() ); 
       object_3d_model_marker.frame_locked                = true;
       object_3d_model_marker.mesh_use_embedded_materials = true;
       return object_3d_model_marker;
     }
 
     return {};
+}
+
+std::string get_best_fiting_car_3d_model(const adore_ros2_msgs::msg::TrafficParticipantDetection& participant)
+{
+    double participant_length = participant.participant_data.physical_parameters.body_length;
+
+    if ( participant_length > 5.0 )
+    {
+      return "car_bus.dae";
+    }
+
+    if ( participant_length > 4.5 ) // large car (around the size of the standard vehicle)
+    {
+      return "car_large.dae";
+    }
+
+    if ( participant_length > 4 ) // medium car 
+    {
+      return "car_medium.dae";
+    }
+
+    return "car_small.dae";
 }
 
 } // namespace conversions

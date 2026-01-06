@@ -84,6 +84,8 @@ GeoJSON to_geo_json( const adore_ros2_msgs::msg::Route& route );
 
 std::optional<Marker> get_participant_3d_model(const adore_ros2_msgs::msg::TrafficParticipantDetection& participant);
 
+std::string get_best_fiting_car_3d_model(const adore_ros2_msgs::msg::TrafficParticipantDetection& participant);
+
 } // namespace conversions
 } // namespace visualizer
 } // namespace adore
