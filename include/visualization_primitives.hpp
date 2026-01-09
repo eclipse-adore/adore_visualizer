@@ -111,7 +111,7 @@ create_line_marker( const IterablePoints& points, const std::string& ns, int id,
     geometry_msgs::msg::Point marker_point;
     marker_point.x = point.x;
     marker_point.y = point.y;
-    marker_point.z = 0.5;
+    marker_point.z = 0.0;
 
     marker.points.push_back( marker_point );
   }
@@ -161,16 +161,16 @@ create_lane_marker(const IterablePoints& left_points, const IterablePoints& righ
     geometry_msgs::msg::Point p1, p2, p3, p4;
     p1.x = current_left.x;
     p1.y = current_left.y;
-    p1.z = 0.4;
+    p1.z = 0.0;
     p2.x = current_right.x;
     p2.y = current_right.y;
-    p2.z = 0.4;
+    p2.z = 0.0;
     p3.x = next_left.x;
     p3.y = next_left.y;
-    p3.z = 0.4;
+    p3.z = 0.0;
     p4.x = next_right.x;
     p4.y = next_right.y;
-    p4.z = 0.4;
+    p4.z = 0.0;
 
     // Create two triangles to form the quad.
     marker.points.push_back( p1 );

@@ -13,6 +13,10 @@
 
 #pragma once
 
+#include <optional>
+#include <string>
+#include <vector>
+
 #include "adore_map_conversions.hpp"
 #include "adore_math/angles.h"
 #include "adore_ros2_msgs/msg/goal_point.hpp"
@@ -79,6 +83,9 @@ GeoJSON to_geo_json( const adore_ros2_msgs::msg::GoalPoint& goal_point );
 
 GeoJSON to_geo_json( const adore_ros2_msgs::msg::Route& route );
 
+std::optional<Marker> get_participant_3d_model( const adore_ros2_msgs::msg::TrafficParticipantDetection& participant );
+
+std::string get_best_fiting_car_3d_model( const adore_ros2_msgs::msg::TrafficParticipantDetection& participant );
 
 } // namespace conversions
 } // namespace visualizer

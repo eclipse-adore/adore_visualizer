@@ -137,38 +137,28 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
 
     auto participant_color = participant.participant_data.goal_point.x < 0.01 ? colors::red : colors::purple;
 
-    Marker object_marker;
 
     bool controllable = participant.participant_data.v2x_station_id != 0;
 
-    if( controllable )
+    Marker object_bounding_box_marker = primitives::create_rectangle_marker( state.x, state.y,
+                                                                             participant_height / 2,             // Z position for height
+                                                                             participant_length,                 // Length
+                                                                             participant_width,                  // Width
+                                                                             participant_height,                 // Height (example)
+                                                                             heading,                            // Orientation
+                                                                             "traffic_participant_bounding_box", // Namespace
+                                                                             participant.participant_data.tracking_id, // ID
+                                                                             participant_color );
+
+    object_bounding_box_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
+    marker_array.markers.push_back( object_bounding_box_marker );
+
+    std::optional<Marker> object_3d_model_marker = get_participant_3d_model( participant );
+    if( object_3d_model_marker.has_value() )
     {
-      object_marker                             = primitives::create_3d_object_marker( state.x, state.y,
-                                                                                       0.01, // Z height
-                                                                                       1,    // scale
-                                                                                       heading, "traffc_participant", participant.participant_data.tracking_id,
-                                                                                       colors::blue,
-                                                                                       "low_poly_ngc_model.dae" ); // Create a rectangle marker for the ego vehicle
-      object_marker.frame_locked                = true;
-      object_marker.mesh_use_embedded_materials = true;
+      object_3d_model_marker.value().lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
+      marker_array.markers.push_back( object_3d_model_marker.value() );
     }
-    else
-    {
-
-      object_marker = primitives::create_rectangle_marker( state.x, state.y,
-                                                           participant_height / 2,                   // Z position for height
-                                                           participant_length,                       // Length
-                                                           participant_width,                        // Width
-                                                           participant_height,                       // Height (example)
-                                                           heading,                                  // Orientation
-                                                           "traffic_participant",                    // Namespace
-                                                           participant.participant_data.tracking_id, // ID
-                                                           participant_color );
-    }
-
-
-    object_marker.lifetime = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
-    marker_array.markers.push_back( object_marker );
 
     // Add velocity line marker
     geometry_msgs::msg::Point start;
@@ -394,7 +384,7 @@ to_marker_array( const adore_ros2_msgs::msg::CautionZone& caution_zone )
     centroid_x += pt.x;
     centroid_y += pt.y;
   }
-  size_t num_points  = polygon_points.size();
+  size_t num_points = polygon_points.size();
   centroid_x        /= num_points;
   centroid_y        /= num_points;
 
@@ -428,8 +418,8 @@ to_geo_json( const adore_ros2_msgs::msg::GoalPoint& goal_point )
   auto goal_position_lat_lon = map::convert_utm_to_lat_lon( goal_point.x_position, goal_point.y_position, 32, "U" );
 
   json goal_geojson = {
-    {     "type",                                                                                                                      "FeatureCollection" },
-    { "features", json::array( { { { "type", "Feature" },
+    {    "type",                                                                                                                      "FeatureCollection"},
+    {"features", json::array( { { { "type", "Feature" },
  { "properties", { { "name", "My Point" }, { "style", { { "color", "#ff0000" } } } } },
  { "geometry",
  { { "type", "Point" },
@@ -454,12 +444,12 @@ to_geo_json( const adore_ros2_msgs::msg::Route& route )
   }
 
   json path = {
-    {     "type",                                              "FeatureCollection"          },
-    { "features",
+    {    "type",                                                "FeatureCollection"         },
+    {"features",
      json::array(
      { { { "type", "Feature" },
      { "properties", { { "name", "Route Path" }, { "style", { { "color", "#dfd331" }, { "weight", 3 }, { "opacity", 1.0 } } } } },
-     { "geometry", { { "type", "LineString" }, { "coordinates", route_json_array } } } } } ) }
+     { "geometry", { { "type", "LineString" }, { "coordinates", route_json_array } } } } } )}
   };
 
   foxglove_msgs::msg::GeoJSON route_map;
@@ -467,6 +457,97 @@ to_geo_json( const adore_ros2_msgs::msg::Route& route )
 
   return route_map;
 }
+
+std::optional<Marker>
+get_participant_3d_model( const adore_ros2_msgs::msg::TrafficParticipantDetection& participant )
+{
+  bool controllable = participant.participant_data.v2x_station_id != 0;
+
+  const auto& state   = participant.participant_data.motion_state;
+  double      heading = state.yaw_angle;
+
+  auto participant_color = participant.participant_data.goal_point.x < 0.01 ? colors::red : colors::purple;
+
+  if( controllable )
+  {
+    Marker object_3d_model_marker = primitives::create_3d_object_marker( state.x, state.y,
+                                                                         0.01, // Z height
+                                                                         1,    // scale
+                                                                         heading, "traffc_participant_model",
+                                                                         participant.participant_data.tracking_id, colors::blue,
+                                                                         "low_poly_ngc_model.dae" ); // Create a rectangle marker for the
+                                                                                                     // ego vehicle
+    object_3d_model_marker.frame_locked                = true;
+    object_3d_model_marker.mesh_use_embedded_materials = true;
+
+    return object_3d_model_marker;
+  }
+
+  std::optional<std::string> model_name;
+
+  auto participant_classification = participant.participant_data.classification.type_id;
+  switch( participant_classification )
+  {
+    case adore_ros2_msgs::msg::TrafficClassification::CAR:
+    {
+      model_name = get_best_fiting_car_3d_model( participant );
+      break;
+    }
+    case adore_ros2_msgs::msg::TrafficClassification::PEDESTRIAN:
+    {
+      model_name = "human_standing.dae";
+      break;
+    }
+    case adore_ros2_msgs::msg::TrafficClassification::TRUCK:
+    {
+      model_name = "truck.dae";
+      break;
+    }
+    default:
+    {
+      model_name = {};
+      break;
+    }
+  }
+
+  if( model_name.has_value() )
+  {
+    Marker object_3d_model_marker                      = primitives::create_3d_object_marker( state.x, state.y,
+                                                                                              0.01, // Z height
+                                                                                              1.0, heading, "traffc_participant_model",
+                                                                                              participant.participant_data.tracking_id, colors::blue,
+                                                                                              model_name.value() );
+    object_3d_model_marker.frame_locked                = true;
+    object_3d_model_marker.mesh_use_embedded_materials = true;
+    return object_3d_model_marker;
+  }
+
+  return {};
+}
+
+std::string
+get_best_fiting_car_3d_model( const adore_ros2_msgs::msg::TrafficParticipantDetection& participant )
+{
+  double participant_length = participant.participant_data.physical_parameters.body_length;
+
+  if( participant_length > 5.0 )
+  {
+    return "car_bus.dae";
+  }
+
+  if( participant_length > 4.5 ) // large car (around the size of the standard vehicle)
+  {
+    return "car_large.dae";
+  }
+
+  if( participant_length > 4 ) // medium car
+  {
+    return "car_medium.dae";
+  }
+
+  return "car_small.dae";
+}
+
 } // namespace conversions
 } // namespace visualizer
 } // namespace adore
