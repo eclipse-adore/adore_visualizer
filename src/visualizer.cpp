@@ -46,12 +46,11 @@ Visualizer::load_parameters()
 
   offset_tf.header.frame_id         = "world";
   offset_tf.child_frame_id          = "visualization_offset";
-  offset_tf.header.stamp            = rclcpp::Time( 0 ); // static
+  offset_tf.header.stamp            = rclcpp::Time( 0 );
   offset_tf.transform.translation.x = visualization_offset_center->x;
   offset_tf.transform.translation.y = visualization_offset_center->y;
   offset_tf.transform.translation.z = 0.0;
-  tf_broadcaster                    = std::make_shared<tf2_ros::StaticTransformBroadcaster>( this );
-  tf_broadcaster->sendTransform( offset_tf );
+  tf_broadcaster                    = std::make_shared<tf2_ros::TransformBroadcaster>( this );
 }
 
 void
@@ -76,14 +75,15 @@ Visualizer::create_subscribers()
   tf_buffer            = std::make_shared<tf2_ros::Buffer>( this->get_clock() );
   tf_listener          = std::make_shared<tf2_ros::TransformListener>( *tf_buffer, this );
   high_frequency_timer = create_wall_timer( 50ms, std::bind( &Visualizer::high_frequency_timer_callback, this ) );
-  low_frequency_timer  = create_wall_timer( 1000ms, std::bind( &Visualizer::low_frequency_timer_callback, this ) );
-  update_all_dynamic_subscriptions();
+  low_frequency_timer  = create_wall_timer( 10000ms, std::bind( &Visualizer::low_frequency_timer_callback, this ) );
 }
 
 void
 Visualizer::high_frequency_timer_callback()
 {
-  // publish_markers();
+  offset_tf.header.stamp = this->now();
+  tf_broadcaster->sendTransform( offset_tf );
+  publish_markers();
 }
 
 void
@@ -128,23 +128,21 @@ Visualizer::should_subscribe_to_topic( const std::string& candidate_topic_name, 
 void
 Visualizer::change_frame( visualization_msgs::msg::Marker& marker, const std::string& new_frame_id )
 {
-  const auto stamp = marker.header.stamp; // original message time
-
   if( new_frame_id == marker.header.frame_id )
     return;
 
   try
   {
-    auto transform = tf_buffer->lookupTransform( new_frame_id, marker.header.frame_id, stamp );
+    auto transform = tf_buffer->lookupTransform( new_frame_id, marker.header.frame_id, tf2::TimePointZero );
 
     primitives::transform_marker( marker, transform );
     marker.header.frame_id = new_frame_id;
-    marker.header.stamp    = transform.header.stamp; // optional, but often nice
+    marker.header.stamp    = this->now();
   }
   catch( const tf2::TransformException& ex )
   {
-    RCLCPP_WARN_THROTTLE( get_logger(), *get_clock(), 2000, "Could not transform marker from '%s' to '%s' at time %.3f: %s",
-                          marker.header.frame_id.c_str(), new_frame_id.c_str(), rclcpp::Time( stamp ).seconds(), ex.what() );
+    RCLCPP_WARN_THROTTLE( get_logger(), *get_clock(), 2000, "Could not transform marker from '%s' to '%s': %s",
+                          marker.header.frame_id.c_str(), new_frame_id.c_str(), ex.what() );
   }
 }
 

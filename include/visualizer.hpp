@@ -26,7 +26,7 @@
 
 #include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
-#include "tf2_ros/static_transform_broadcaster.h"
+#include "tf2_ros/transform_broadcaster.h"
 #include "visualizable_traits.hpp"
 #include "visualization_primitives.hpp"
 #include "visualizer_conversions.hpp"
@@ -47,7 +47,7 @@ private:
   rclcpp::TimerBase::SharedPtr high_frequency_timer;
   rclcpp::TimerBase::SharedPtr low_frequency_timer;
 
-  std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_broadcaster;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster;
   std::shared_ptr<tf2_ros::Buffer>                     tf_buffer;
   std::shared_ptr<tf2_ros::TransformListener>          tf_listener;
   geometry_msgs::msg::TransformStamped                 offset_tf;
@@ -156,19 +156,18 @@ Visualizer::create_subscription_for( const std::string& topic_name )
     // MarkerArray branch (only compiled if conversion exists)
     if constexpr( has_marker_array_conversion<MsgT> )
     {
-      const auto& pub_it = marker_publishers.find( topic_name );
-      if( pub_it == marker_publishers.end() || pub_it->second->get_subscription_count() == 0 )
-        return;
-
       auto marker_array = marker_array_conversion<MsgT>::convert( msg );
       for( auto& marker : marker_array.markers )
       {
         marker.header.frame_id = msg.header.frame_id;
-        // skip change frame if topic name contains "vehicle_state_dynamic"
         if( marker.header.frame_id == "world" )
           change_frame( marker, "visualization_offset" );
       }
-      marker_publishers[topic_name]->publish( marker_array );
+      marker_cache[topic_name] = marker_array;
+
+      const auto& pub_it = marker_publishers.find( topic_name );
+      if( pub_it != marker_publishers.end() )
+        pub_it->second->publish( marker_array );
     }
 
     // TrajectoryTranspose branch (only compiled if conversion exists)

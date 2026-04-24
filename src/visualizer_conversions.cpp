@@ -27,6 +27,23 @@ namespace visualizer
 namespace conversions
 {
 
+// Parses zone number and letter from a frame_id like "UTM33U"
+static std::pair<int, std::string>
+parse_utm_zone( const std::string& frame_id )
+{
+  auto it = frame_id.find( "UTM" );
+  if( it == std::string::npos || frame_id.size() < it + 4 )
+    return { 33, "U" };
+
+  std::string zone_str;
+  size_t      i = it + 3;
+  while( i < frame_id.size() && std::isdigit( frame_id[i] ) )
+    zone_str += frame_id[i++];
+
+  std::string letter = ( i < frame_id.size() ) ? std::string( 1, frame_id[i] ) : "U";
+  return { std::stoi( zone_str ), letter };
+}
+
 MarkerArray
 to_marker_array( const adore_ros2_msgs::msg::SafetyCorridor& safety_corridor )
 {
@@ -402,7 +419,8 @@ to_nav_sat_fix( const adore_ros2_msgs::msg::VehicleStateDynamic& vehicle_state_d
 {
   NavSatFix nav_sat_fix;
 
-  std::vector<double> lat_lon = map::convert_utm_to_lat_lon( vehicle_state_dynamic.x, vehicle_state_dynamic.y, 32, "U" );
+  auto [utm_zone, utm_letter] = parse_utm_zone( vehicle_state_dynamic.header.frame_id );
+  std::vector<double> lat_lon = map::convert_utm_to_lat_lon( vehicle_state_dynamic.x, vehicle_state_dynamic.y, utm_zone, utm_letter );
 
   nav_sat_fix.latitude  = lat_lon[0];
   nav_sat_fix.longitude = lat_lon[1];
@@ -415,7 +433,8 @@ using json = nlohmann::json;
 GeoJSON
 to_geo_json( const adore_ros2_msgs::msg::GoalPoint& goal_point )
 {
-  auto goal_position_lat_lon = map::convert_utm_to_lat_lon( goal_point.x_position, goal_point.y_position, 32, "U" );
+  auto [utm_zone, utm_letter]    = parse_utm_zone( goal_point.header.frame_id );
+  auto goal_position_lat_lon = map::convert_utm_to_lat_lon( goal_point.x_position, goal_point.y_position, utm_zone, utm_letter );
 
   json goal_geojson = {
     {    "type",                                                                                                                      "FeatureCollection"},
@@ -437,9 +456,11 @@ to_geo_json( const adore_ros2_msgs::msg::Route& route )
 {
   auto route_json_array = json::array( {} );
 
+  auto [utm_zone, utm_letter] = parse_utm_zone( route.header.frame_id );
+
   for( const auto& point : route.center_points )
   {
-    auto route_point_lat_lon = map::convert_utm_to_lat_lon( point.x, point.y, 32, "U" );
+    auto route_point_lat_lon = map::convert_utm_to_lat_lon( point.x, point.y, utm_zone, utm_letter );
     route_json_array.push_back( { route_point_lat_lon[1], route_point_lat_lon[0] } );
   }
 
@@ -547,6 +568,7 @@ get_best_fiting_car_3d_model( const adore_ros2_msgs::msg::TrafficParticipantDete
 
   return "car_small.dae";
 }
+
 
 } // namespace conversions
 } // namespace visualizer
