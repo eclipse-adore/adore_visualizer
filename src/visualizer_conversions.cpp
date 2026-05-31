@@ -17,6 +17,7 @@
 
 #include "color_palette.hpp"
 #include "visualization_primitives.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 #include <nlohmann/json.hpp>
 #include <rclcpp/duration.hpp>
 
@@ -569,6 +570,12 @@ get_best_fiting_car_3d_model( const adore_ros2_msgs::msg::TrafficParticipantDete
   return "car_small.dae";
 }
 
+
+MarkerArray
+to_marker_array( const MarkerArray& marker_array )
+{
+  return marker_array;
+}
 
 } // namespace conversions
 } // namespace visualizer
