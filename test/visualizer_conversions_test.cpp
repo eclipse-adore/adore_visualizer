@@ -265,16 +265,16 @@ TEST( VisualizerConversions, traffic_participant_set_creates_object_velocity_hea
   participant.participant_data.physical_parameters.body_height = 1.5;
 
   // Goal point (use x >= 0.01 to take the purple color branch)
-  participant.participant_data.goal_point.x = 1.0;
+  participant.participant_data.goal_point[0].x = 1.0;
 
   // Predicted trajectory
-  participant.participant_data.predicted_trajectory.states.resize( 3 );
-  participant.participant_data.predicted_trajectory.states[0].x = 1.0;
-  participant.participant_data.predicted_trajectory.states[0].y = 2.0;
-  participant.participant_data.predicted_trajectory.states[1].x = 2.0;
-  participant.participant_data.predicted_trajectory.states[1].y = 3.0;
-  participant.participant_data.predicted_trajectory.states[2].x = 3.0;
-  participant.participant_data.predicted_trajectory.states[2].y = 4.0;
+  participant.participant_data.predicted_trajectory[0].states.resize( 3 );
+  participant.participant_data.predicted_trajectory[0].states[0].x = 1.0;
+  participant.participant_data.predicted_trajectory[0].states[0].y = 2.0;
+  participant.participant_data.predicted_trajectory[0].states[1].x = 2.0;
+  participant.participant_data.predicted_trajectory[0].states[1].y = 3.0;
+  participant.participant_data.predicted_trajectory[0].states[2].x = 3.0;
+  participant.participant_data.predicted_trajectory[0].states[2].y = 4.0;
 
   // Route (center line)
   adore_ros2_msgs::msg::MapPoint r1;
@@ -283,8 +283,8 @@ TEST( VisualizerConversions, traffic_participant_set_creates_object_velocity_hea
   adore_ros2_msgs::msg::MapPoint r2;
   r2.x = 1.0;
   r2.y = 0.0;
-  participant.participant_data.route.center_points.push_back( r1 );
-  participant.participant_data.route.center_points.push_back( r2 );
+  participant.participant_data.route[0].center_points.push_back( r1 );
+  participant.participant_data.route[0].center_points.push_back( r2 );
 
   // Validity area boundary
   adore_ros2_msgs::msg::Point2d b1;
