@@ -153,7 +153,7 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
     double participant_width  = participant.participant_data.physical_parameters.body_width;
     double participant_height = participant.participant_data.physical_parameters.body_height;
 
-    auto participant_color = participant.participant_data.goal_point.x < 0.01 ? colors::red : colors::purple;
+    auto participant_color = participant.participant_data.goal_point.empty() ? colors::red : colors::purple;
 
 
     bool controllable = participant.participant_data.v2x_station_id != 0;
@@ -210,12 +210,12 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
                                                                     colors::gray );
     heading_marker.lifetime       = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
     static const int TRAJECTORY_I = 1000000;
-    if( participant.participant_data.predicted_trajectory.states.size() > 0 )
+    if( participant.participant_data.predicted_trajectory.empty() )
     {
       if( !controllable )
         participant_color[3] = 0.1;
       // Create the line marker for the trajectory
-      auto line_marker = primitives::create_flat_line_marker( participant.participant_data.predicted_trajectory.states, "decision",
+      auto line_marker = primitives::create_flat_line_marker( participant.participant_data.predicted_trajectory[0].states, "decision",
                                                               participant.participant_data.tracking_id + TRAJECTORY_I, 1.8,
                                                               participant_color );
 
@@ -225,7 +225,7 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
     }
     marker_array.markers.push_back( heading_marker );
 
-    auto route_marker               = to_marker_array( participant.participant_data.route );
+    auto route_marker               = to_marker_array( participant.participant_data.route[0] );
     route_marker.markers.front().id = 2000000 + participant.participant_data.tracking_id; // Ensure unique ID for route marker
     marker_array.markers.insert( marker_array.markers.end(), route_marker.markers.begin(), route_marker.markers.end() );
   }
@@ -490,7 +490,7 @@ get_participant_3d_model( const adore_ros2_msgs::msg::TrafficParticipantDetectio
   const auto& state   = participant.participant_data.motion_state;
   double      heading = state.yaw_angle;
 
-  auto participant_color = participant.participant_data.goal_point.x < 0.01 ? colors::red : colors::purple;
+  auto participant_color = participant.participant_data.goal_point.empty() ? colors::red : colors::purple;
 
   if( controllable )
   {
@@ -571,7 +571,6 @@ get_best_fiting_car_3d_model( const adore_ros2_msgs::msg::TrafficParticipantDete
 
   return "car_small.dae";
 }
-
 
 MarkerArray
 to_marker_array( const MarkerArray& marker_array )
