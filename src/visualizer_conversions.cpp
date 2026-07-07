@@ -17,6 +17,7 @@
 
 #include "color_palette.hpp"
 #include "visualization_primitives.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 #include <nlohmann/json.hpp>
 #include <rclcpp/duration.hpp>
 
@@ -306,20 +307,22 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficSignals& traffic_signals )
     const double between_lights = 0.75; // Spacing between centers of lights
 
     // Red light
-    Marker red_light = primitives::create_sphere_marker( signal.x, signal.y * between_lights, 0.12, circle_radius, "traffic_signal_red", i,
-                                                         ( signal.state == adore_ros2_msgs::msg::TrafficSignal::RED ) ? colors::red
+    Marker red_light = primitives::create_sphere_marker( signal.x, signal.y + between_lights, 0.12, circle_radius, "traffic_signal_red", i,
+                                                         ( signal.state == adore_ros2_msgs::msg::TrafficSignal::RED ||
+                                                           signal.state == adore_ros2_msgs::msg::TrafficSignal::RED_YELLOW ) ? colors::red
                                                                                                                       : colors::gray );
     marker_array.markers.push_back( red_light );
 
     // Yellow light
     Marker yellow_light = primitives::create_sphere_marker( signal.x, signal.y, 0.12, circle_radius, "traffic_signal_yellow", i,
-                                                            ( signal.state == adore_ros2_msgs::msg::TrafficSignal::YELLOW )
+                                                            ( signal.state == adore_ros2_msgs::msg::TrafficSignal::YELLOW ||
+                                                              signal.state == adore_ros2_msgs::msg::TrafficSignal::RED_YELLOW )
                                                               ? colors::yellow
                                                               : colors::gray );
     marker_array.markers.push_back( yellow_light );
 
     // Green light
-    Marker green_light = primitives::create_sphere_marker( signal.x, signal.y * between_lights, 0.12, circle_radius, "traffic_signal_green",
+    Marker green_light = primitives::create_sphere_marker( signal.x, signal.y - between_lights, 0.12, circle_radius, "traffic_signal_green",
                                                            i,
                                                            ( signal.state == adore_ros2_msgs::msg::TrafficSignal::GREEN ) ? colors::green
                                                                                                                           : colors::gray );
@@ -567,6 +570,12 @@ get_best_fiting_car_3d_model( const adore_ros2_msgs::msg::TrafficParticipantDete
   }
 
   return "car_small.dae";
+}
+
+MarkerArray
+to_marker_array( const MarkerArray& marker_array )
+{
+  return marker_array;
 }
 
 } // namespace conversions

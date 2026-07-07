@@ -245,6 +245,73 @@ transform_marker( Marker& marker, const geometry_msgs::msg::TransformStamped& tr
 }
 
 
+
+MarkerArray
+create_flagpole_marker( double x, double y, const std::string& ns, int id,
+                        const Color& pole_color, const Color& flag_color,
+                        const std::string& label )
+{
+  MarkerArray array;
+
+  constexpr double POLE_HEIGHT = 4.0;
+  constexpr double POLE_WIDTH  = 0.08;
+  constexpr double FLAG_WIDTH  = 1.2;
+  constexpr double FLAG_HEIGHT = 0.7;
+  constexpr double FLAG_DEPTH  = 0.05;
+
+  Marker pole;
+  pole.ns                  = ns + "_pole";
+  pole.id                  = id;
+  pole.type                = Marker::CUBE;
+  pole.action              = Marker::ADD;
+  pole.pose.position.x     = x;
+  pole.pose.position.y     = y;
+  pole.pose.position.z     = POLE_HEIGHT / 2.0;
+  pole.pose.orientation.w  = 1.0;
+  pole.scale.x             = POLE_WIDTH;
+  pole.scale.y             = POLE_WIDTH;
+  pole.scale.z             = POLE_HEIGHT;
+  pole.color.r             = pole_color[0];
+  pole.color.g             = pole_color[1];
+  pole.color.b             = pole_color[2];
+  pole.color.a             = pole_color[3];
+  pole.frame_locked        = true;
+  pole.header.frame_id     = "world";
+  array.markers.push_back( pole );
+
+  Marker flag;
+  flag.ns                  = ns + "_flag";
+  flag.id                  = id;
+  flag.type                = Marker::CUBE;
+  flag.action              = Marker::ADD;
+  flag.pose.position.x     = x + FLAG_WIDTH / 2.0 + POLE_WIDTH / 2.0;
+  flag.pose.position.y     = y;
+  flag.pose.position.z     = POLE_HEIGHT - FLAG_HEIGHT / 2.0;
+  flag.pose.orientation.w  = 1.0;
+  flag.scale.x             = FLAG_WIDTH;
+  flag.scale.y             = FLAG_DEPTH;
+  flag.scale.z             = FLAG_HEIGHT;
+  flag.color.r             = flag_color[0];
+  flag.color.g             = flag_color[1];
+  flag.color.b             = flag_color[2];
+  flag.color.a             = flag_color[3];
+  flag.frame_locked        = true;
+  flag.header.frame_id     = "world";
+  array.markers.push_back( flag );
+
+  if( !label.empty() )
+  {
+    Marker text           = create_text_marker( x, y, POLE_HEIGHT + FLAG_HEIGHT + 0.3,
+                                                label, 0.7, pole_color, ns + "_label" );
+    text.id               = id;
+    text.frame_locked     = true;
+    text.header.frame_id  = "world";
+    array.markers.push_back( text );
+  }
+
+  return array;
+}
+
 } // namespace primitives
 } // namespace visualizer
 } // namespace adore
