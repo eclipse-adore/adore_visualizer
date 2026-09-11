@@ -210,7 +210,7 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
                                                                     colors::gray );
     heading_marker.lifetime       = rclcpp::Duration::from_seconds( 1.0 ); // Add lifetime
     static const int TRAJECTORY_I = 1000000;
-    if( participant.participant_data.predicted_trajectory.empty() )
+    if( !participant.participant_data.predicted_trajectory.empty() )
     {
       if( !controllable )
         participant_color[3] = 0.1;
@@ -224,10 +224,12 @@ to_marker_array( const adore_ros2_msgs::msg::TrafficParticipantSet& participant_
       marker_array.markers.push_back( line_marker );
     }
     marker_array.markers.push_back( heading_marker );
-
-    auto route_marker               = to_marker_array( participant.participant_data.route[0] );
-    route_marker.markers.front().id = 2000000 + participant.participant_data.tracking_id; // Ensure unique ID for route marker
-    marker_array.markers.insert( marker_array.markers.end(), route_marker.markers.begin(), route_marker.markers.end() );
+    if( !participant.participant_data.route.empty() )
+    {
+      auto route_marker               = to_marker_array( participant.participant_data.route[0] );
+      route_marker.markers.front().id = 2000000 + participant.participant_data.tracking_id; // Ensure unique ID for route marker
+      marker_array.markers.insert( marker_array.markers.end(), route_marker.markers.begin(), route_marker.markers.end() );
+    }
   }
   auto closed_border = participant_set.validity_area.points;
   if( closed_border.size() > 0 )
